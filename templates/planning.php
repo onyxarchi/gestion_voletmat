@@ -106,7 +106,7 @@ $saveUrl = page_url('planning');
             $moisVal = $cell ? number_format((float) $cell['montant_ht'], 2, ',', '') : '';
         ?>
           <td class="num pl-mois">
-            <div class="mois-edit st-<?= e($st) ?>">
+            <div class="mois-edit">
               <input class="cell-input num cell-mois txt-<?= e($st) ?>"
                      type="text" name="mois[<?= e($m['key']) ?>]"
                      value="<?= e($moisVal) ?>" inputmode="decimal"
@@ -146,10 +146,10 @@ $saveUrl = page_url('planning');
 
 <aside class="planning-footer">
   <div class="legend">
-    <span class="leg leg-facture">V vert = facturé</span>
-    <span class="leg leg-a_facturer">R rouge = à facturer</span>
-    <span class="leg leg-litige">J jaune = litige</span>
-    <span class="leg leg-paye">B bleu = payé</span>
+    <span class="leg leg-facture">V texte vert = facturé</span>
+    <span class="leg leg-a_facturer">R texte rouge = à facturer</span>
+    <span class="leg leg-litige">J texte jaune = litige</span>
+    <span class="leg leg-paye">B texte bleu = payé</span>
   </div>
   <div class="cards cards-compact">
     <div class="card">

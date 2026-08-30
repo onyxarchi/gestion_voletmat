@@ -33,7 +33,6 @@
     var s = select.value;
     select.className = 'cell-statut txt-' + s;
     var wrap = select.closest('.mois-edit');
-    if (wrap) wrap.className = 'mois-edit st-' + s;
     var input = wrap && wrap.querySelector('.cell-mois');
     if (input) input.className = 'cell-input num cell-mois txt-' + s;
   }

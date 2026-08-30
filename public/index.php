@@ -392,7 +392,9 @@ switch ($page) {
                     ];
 
                     foreach ($moisPost as $anneeMois => $raw) {
-                        if (!is_string($anneeMois) || !preg_match('/^\d{6}$/', $anneeMois)) {
+                        // PHP convertit les clés numériques (ex. 202507) en int
+                        $anneeMois = (string) $anneeMois;
+                        if (!preg_match('/^\d{6}$/', $anneeMois)) {
                             continue;
                         }
                         $raw = str_replace([' ', ',', "\xc2\xa0"], ['', '.', ''], trim((string) $raw));
@@ -401,7 +403,7 @@ switch ($page) {
                             continue;
                         }
                         $montant = round((float) $raw, 2);
-                        $statut = (string) ($statutsPost[$anneeMois] ?? 'a_facturer');
+                        $statut = (string) ($statutsPost[$anneeMois] ?? $statutsPost[(int) $anneeMois] ?? 'a_facturer');
                         if (!isset($statutsOk[$statut])) {
                             $statut = 'a_facturer';
                         }

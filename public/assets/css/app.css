@@ -574,11 +574,8 @@ table.planning-grid .mois-edit {
   min-width: 5.2rem;
   border-radius: 3px;
   padding: 0.1rem;
+  background: transparent;
 }
-table.planning-grid .mois-edit.st-a_facturer { background: #fde4e6; }
-table.planning-grid .mois-edit.st-facture { background: #d8f0e4; }
-table.planning-grid .mois-edit.st-litige { background: #fff3b8; }
-table.planning-grid .mois-edit.st-paye { background: #d4e4f8; }
 
 table.planning-grid .cell-input.cell-mois {
   max-width: none;
@@ -601,15 +598,19 @@ table.planning-grid .cell-statut {
   text-align: center;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.75);
+  background: #fff;
   cursor: pointer;
   appearance: auto;
 }
-/* Couleurs bien visibles (fond + texte) */
-table.planning-grid .txt-a_facturer { color: #c01020 !important; }
-table.planning-grid .txt-facture { color: #0d7a45 !important; }
-table.planning-grid .txt-litige { color: #9a6b00 !important; }
-table.planning-grid .txt-paye { color: #1557a8 !important; }
+/* Couleur = texte uniquement (pas de fond de cellule) */
+table.planning-grid .txt-a_facturer,
+table.planning-grid .txt-a_facturer option { color: #e01828 !important; }
+table.planning-grid .txt-facture,
+table.planning-grid .txt-facture option { color: #0a8f4a !important; }
+table.planning-grid .txt-litige,
+table.planning-grid .txt-litige option { color: #c48a00 !important; }
+table.planning-grid .txt-paye,
+table.planning-grid .txt-paye option { color: #1565c0 !important; }
 
 table.planning-grid .restant-zero { color: var(--ok); font-weight: 650; }
 table.planning-grid .restant-neg { color: var(--danger); font-weight: 650; }
