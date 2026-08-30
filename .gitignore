@@ -9,3 +9,5 @@ storage/backups/*
 ~$*.xlsm
 ~$*.xlsx
 *.tmp
+__pycache__/
+*.pyc
