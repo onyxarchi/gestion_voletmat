@@ -13,6 +13,55 @@ use PDO;
  */
 final class PrevisionnelService
 {
+    /** Codes dont le budget = max(débit banque) × nb mois exercice. */
+    public const BUDGET_FROM_BANQUE_MAX = [
+        'PER' => ['tva' => false],      // GALYA / GGVIE
+        'PREV' => ['tva' => false],     // SWISSLIFE
+        'PJ' => ['tva' => false],       // GPJ / GAN
+        // Compagnie Fiduciaire : forfait mensuel (pas le max banque, qui peut être un double prélèvement)
+        'COMPTA' => ['tva' => true, 'fixe_mensuel' => 205.0],
+        'NET' => ['tva' => true, 'fixe_mensuel' => 23.99], // FREE Telecom (hors pic ponctuel)
+        'TEL' => ['tva' => true],       // Bouygues
+        'BANQUE' => ['tva' => true],    // frais / factures CIC
+    ];
+
+    /** Codes hors TVA (salaires, Madelin, impôts, etc.). Les autres = TVA 20 %. */
+    public const SANS_TVA = [
+        'REM', 'DIVIDENDES', 'CCA', 'IK', 'CESU', 'FORMATION',
+        'URSSAF', 'PREV', 'PER', 'PJ', 'SMABTP', 'OA', 'ASS BUREAU',
+        'CFE', 'IS', 'JURIDIQUE', 'TVA', 'ASSOS', 'EPARGNE', 'ADMIN', 'BUREAU',
+    ];
+
+    public const TAUX_TVA = 0.20;
+
+    public static function avecTva(string $code): bool
+    {
+        return !in_array(strtoupper(trim($code)), self::SANS_TVA, true);
+    }
+
+    /** @return array{ht: float, tva: float, ttc: float} */
+    public static function montantsDepuisHt(string $code, float $ht): array
+    {
+        $ht = round($ht, 2);
+        if (!self::avecTva($code) || abs($ht) < 0.005) {
+            return ['ht' => $ht, 'tva' => 0.0, 'ttc' => $ht];
+        }
+        $tva = round($ht * self::TAUX_TVA, 2);
+        return ['ht' => $ht, 'tva' => $tva, 'ttc' => round($ht + $tva, 2)];
+    }
+
+    /** @return array{ht: float, tva: float, ttc: float} */
+    public static function montantsDepuisTtc(string $code, float $ttc): array
+    {
+        $ttc = round($ttc, 2);
+        if (!self::avecTva($code) || abs($ttc) < 0.005) {
+            return ['ht' => $ttc, 'tva' => 0.0, 'ttc' => $ttc];
+        }
+        $ht = round($ttc / (1.0 + self::TAUX_TVA), 2);
+        $tva = round($ttc - $ht, 2);
+        return ['ht' => $ht, 'tva' => $tva, 'ttc' => $ttc];
+    }
+
     public function __construct(private PDO $pdo)
     {
     }
@@ -23,7 +72,8 @@ final class PrevisionnelService
      *   lignes: list<array{
      *     code:string, libelle:string, famille:string, mensuel:bool,
      *     budget_ht:float, budget_tva:float, budget_ttc:float,
-     *     reel:float, ecart:float, pct:?float
+     *     reel:float, ecart:float, pct:?float,
+     *     from_banque:?array{max_mensuel:float, nb_mois:int}
      *   }>,
      *   totaux: array{budget_ht:float, budget_tva:float, budget_ttc:float, reel:float, ecart:float},
      *   synthese: list<array{label:string, famille:string, budget_ht:float, reel_ttc:float}>,
@@ -34,6 +84,8 @@ final class PrevisionnelService
     {
         $nbMois = $this->nbMoisExercice($exerciceId);
         $this->transposerBudgetsMensuels($exerciceId, $nbMois);
+        $fromBanque = $this->syncBudgetsFromBanqueMax($exerciceId, $nbMois);
+        $this->normalizeBudgetsTva($exerciceId);
 
         $st = $this->pdo->prepare(
             'SELECT b.categorie_code, b.montant_ht, b.montant_tva, b.montant_ttc,
@@ -63,8 +115,8 @@ final class PrevisionnelService
             if ($code === '' || $code === 'VENTE' || $code === 'AVOIR') {
                 continue;
             }
-            // Excel RÉEL = mouvement de trésorerie (débits + crédits abs.)
-            $reelByCat[$code] = (float) $r['debits'] + (float) $r['credits'];
+            // RÉEL = |débits − crédits| (= |total ligne analytique|, toujours positif)
+            $reelByCat[$code] = abs((float) $r['debits'] - (float) $r['credits']);
         }
 
         $lignes = [];
@@ -87,12 +139,14 @@ final class PrevisionnelService
                 'libelle' => $libelle,
                 'famille' => $meta['famille'],
                 'mensuel' => !empty($meta['mensuel']),
+                'avec_tva' => self::avecTva($code),
                 'budget_ht' => $budgetHt,
                 'budget_tva' => $budgetTva,
                 'budget_ttc' => $budgetTtc,
                 'reel' => $reel,
                 'ecart' => $ecart,
                 'pct' => $pct,
+                'from_banque' => $fromBanque[$code] ?? null,
             ];
         }
 
@@ -203,6 +257,115 @@ final class PrevisionnelService
         ];
     }
 
+    /**
+     * Budget = prélèvement banque le plus élevé × durée de l’exercice.
+     * Montants banque = TTC ; Madelin (PER/PREV/PJ) sans TVA, les autres en 20 %.
+     *
+     * @return array<string, array{max_mensuel:float, nb_mois:int}>
+     */
+    private function syncBudgetsFromBanqueMax(int $exerciceId, int $nbMois): array
+    {
+        $stMax = $this->pdo->prepare(
+            'SELECT MAX(ABS(debit)) FROM operations_bancaires
+             WHERE exercice_id = ?
+               AND categorie_code = ?
+               AND debit IS NOT NULL
+               AND ABS(debit) >= 0.005'
+        );
+        // Frais bancaires récurrents (facture CIC) — hors frais CB ponctuels / pics anormaux
+        $stMaxBanque = $this->pdo->prepare(
+            "SELECT MAX(ABS(debit)) FROM operations_bancaires
+             WHERE exercice_id = ?
+               AND categorie_code = 'BANQUE'
+               AND debit IS NOT NULL
+               AND ABS(debit) >= 0.005
+               AND ABS(debit) <= 100
+               AND libelle LIKE '%FACT SGT%'"
+        );
+        $upsert = $this->pdo->prepare(
+            'INSERT INTO budgets (exercice_id, categorie_code, montant_ht, montant_tva, montant_ttc)
+             VALUES (?,?,?,?,?)
+             ON CONFLICT(exercice_id, categorie_code) DO UPDATE SET
+               montant_ht = excluded.montant_ht,
+               montant_tva = excluded.montant_tva,
+               montant_ttc = excluded.montant_ttc'
+        );
+        $out = [];
+        foreach (self::BUDGET_FROM_BANQUE_MAX as $code => $opt) {
+            if (isset($opt['fixe_mensuel'])) {
+                $max = (float) $opt['fixe_mensuel'];
+            } elseif ($code === 'BANQUE') {
+                $stMaxBanque->execute([$exerciceId]);
+                $max = (float) ($stMaxBanque->fetchColumn() ?: 0);
+                if ($max < 0.005) {
+                    $stMax->execute([$exerciceId, $code]);
+                    $max = (float) ($stMax->fetchColumn() ?: 0);
+                }
+            } else {
+                $stMax->execute([$exerciceId, $code]);
+                $max = (float) ($stMax->fetchColumn() ?: 0);
+            }
+            if ($max < 0.005) {
+                continue;
+            }
+            $ttc = round($max * $nbMois, 2);
+            if (!empty($opt['tva'])) {
+                $parts = self::montantsDepuisTtc($code, $ttc);
+                $ht = $parts['ht'];
+                $tva = $parts['tva'];
+                $ttc = $parts['ttc'];
+            } else {
+                $ht = $ttc;
+                $tva = 0.0;
+            }
+            $upsert->execute([$exerciceId, $code, $ht, $tva, $ttc]);
+            $out[$code] = [
+                'max_mensuel' => round($max, 2),
+                'nb_mois' => $nbMois,
+                'fixe' => isset($opt['fixe_mensuel']),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Recalcule TVA / TTC depuis le HT : 20 % si le code est assujetti, sinon TVA = 0.
+     * Corrige les budgets saisis à la main avec un taux incorrect.
+     */
+    private function normalizeBudgetsTva(int $exerciceId): void
+    {
+        $st = $this->pdo->prepare(
+            'SELECT categorie_code, montant_ht, montant_tva, montant_ttc
+             FROM budgets WHERE exercice_id = ?'
+        );
+        $st->execute([$exerciceId]);
+        $upd = $this->pdo->prepare(
+            'UPDATE budgets
+             SET montant_ht = ?, montant_tva = ?, montant_ttc = ?
+             WHERE exercice_id = ? AND categorie_code = ?'
+        );
+        foreach ($st->fetchAll() as $row) {
+            $code = (string) $row['categorie_code'];
+            $ht = round((float) $row['montant_ht'], 2);
+            $tva = round((float) $row['montant_tva'], 2);
+            $ttc = round((float) $row['montant_ttc'], 2);
+            $parts = self::montantsDepuisHt($code, $ht);
+            if (
+                abs($parts['ht'] - $ht) > 0.005
+                || abs($parts['tva'] - $tva) > 0.005
+                || abs($parts['ttc'] - $ttc) > 0.005
+            ) {
+                $upd->execute([
+                    $parts['ht'],
+                    $parts['tva'],
+                    $parts['ttc'],
+                    $exerciceId,
+                    $code,
+                ]);
+            }
+        }
+    }
+
     public function nbMoisExercice(int $exerciceId): int
     {
         $st = $this->pdo->prepare('SELECT date_debut, date_fin FROM exercices WHERE id = ?');
@@ -218,6 +381,7 @@ final class PrevisionnelService
     /**
      * Si les budgets mensuels sont encore exprimés sur une autre base (souvent 12 mois),
      * les ramène à la durée réelle de l’exercice (ex. ×18/12 pour N5).
+     * Les codes recalculés depuis la banque sont exclus (réécrits juste après).
      */
     private function transposerBudgetsMensuels(int $exerciceId, int $nbMois): void
     {
@@ -244,6 +408,9 @@ final class PrevisionnelService
         );
         foreach (TriLignesExcel::LIGNES as $code => $meta) {
             if (empty($meta['mensuel'])) {
+                continue;
+            }
+            if (isset(self::BUDGET_FROM_BANQUE_MAX[$code])) {
                 continue;
             }
             $upd->execute([$factor, $factor, $factor, $exerciceId, $code]);

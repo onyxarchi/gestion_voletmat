@@ -7,6 +7,12 @@ use PDO;
 
 /**
  * Compta analytique : TRI × mois depuis la banque (pas de double comptage).
+ * Aucune table miroir : toute modification banque est reflétée au prochain chargement.
+ *
+ * Convention « charges en positif » (comme le prévisionnel) :
+ * chaque cellule = Σ |débits| − Σ crédits du même TRI sur le mois.
+ * Total ligne = valeur à reporter en RÉEL prévisionnel (positif pour les charges).
+ * Total mois = débits banque − crédits banque (même mois).
  */
 final class AnalytiqueService
 {
@@ -23,48 +29,69 @@ final class AnalytiqueService
     /**
      * @return array{
      *   mois: list<array{key:string, label:string}>,
-     *   lignes: list<array{code:string, libelle:string, famille:string, mois: array<string,float>, total:float}>,
+     *   lignes: list<array{
+     *     code:string, libelle:string, famille:string,
+     *     mois: array<string,float>, anomalies_mois: list<string>, total:float
+     *   }>,
      *   totaux_mois: array<string, float>,
+     *   banque_mois: array<string, float>,
      *   total_general: float
      * }
      */
     public function grille(int $exerciceId): array
     {
+        // Ligne à ligne : |débit| − crédit par TRI / mois (charges en +)
         $st = $this->pdo->prepare(
-            'SELECT annee_mois,
-                    categorie_code,
-                    COALESCE(SUM(ABS(COALESCE(debit, 0))), 0) AS debits,
-                    COALESCE(SUM(COALESCE(credit, 0)), 0) AS credits
+            'SELECT annee_mois, categorie_code, debit, credit
              FROM operations_bancaires
              WHERE exercice_id = ?
                AND annee_mois IS NOT NULL
-               AND annee_mois != \'\'
-             GROUP BY annee_mois, categorie_code
-             ORDER BY annee_mois, categorie_code'
+               AND annee_mois != \'\''
         );
         $st->execute([$exerciceId]);
-        $rows = $st->fetchAll();
 
         $moisSet = [];
+        /** @var array<string, array<string, float>> */
         $byCat = [];
-        foreach ($rows as $r) {
+        /** @var array<string, array<string, true>> */
+        $anomalies = [];
+
+        foreach ($st->fetchAll() as $r) {
             $m = (string) $r['annee_mois'];
-            $code = (string) ($r['categorie_code'] ?? '');
+            if ($m === '') {
+                continue;
+            }
+            $code = trim((string) ($r['categorie_code'] ?? ''));
             if ($code === '') {
                 $code = '—';
             }
             $moisSet[$m] = true;
-            // Débit = charge (positif) ; crédit VENTE = produit (positif dédié)
-            $montant = (float) $r['debits'];
-            if (strtoupper($code) === 'VENTE') {
-                $montant = (float) $r['credits'];
-            } elseif ((float) $r['credits'] > 0 && (float) $r['debits'] < 0.005) {
-                $montant = (float) $r['credits'];
+
+            $debit = $r['debit'] !== null ? abs((float) $r['debit']) : 0.0;
+            $credit = $r['credit'] !== null ? (float) $r['credit'] : 0.0;
+            if ($debit < 0.005) {
+                $debit = 0.0;
             }
+            if ($credit < 0.005) {
+                $credit = 0.0;
+            }
+            if ($debit < 0.005 && $credit < 0.005) {
+                continue;
+            }
+
+            // Inversé vs relevé brut : débit = plus (charge), crédit = moins
+            $montant = $debit - $credit;
             $byCat[$code][$m] = ($byCat[$code][$m] ?? 0.0) + $montant;
+
+            // VENTE ne devrait pas porter de débit
+            if (strtoupper($code) === 'VENTE' && $debit >= 0.005) {
+                $anomalies[$code][$m] = true;
+            }
+            if ($code === '—') {
+                $anomalies[$code][$m] = true;
+            }
         }
 
-        // Mois de l’exercice même sans mouvement
         $ex = $this->pdo->prepare('SELECT date_debut, date_fin FROM exercices WHERE id = ?');
         $ex->execute([$exerciceId]);
         $exRow = $ex->fetch();
@@ -102,6 +129,7 @@ final class AnalytiqueService
                 'libelle' => $libelles[$code] ?? $code,
                 'famille' => TriLignesExcel::famille($code),
                 'mois' => $moisVals,
+                'anomalies_mois' => array_keys($anomalies[$code] ?? []),
                 'total' => round($total, 2),
             ];
         }
@@ -118,10 +146,31 @@ final class AnalytiqueService
             $totauxMois[$k] = round($v, 2);
         }
 
+        // Contrôle = débits − crédits du mois (= total colonne analytique)
+        $banqueMois = array_fill_keys($moisKeys, 0.0);
+        $stB = $this->pdo->prepare(
+            'SELECT annee_mois,
+                    COALESCE(SUM(ABS(COALESCE(debit, 0))), 0)
+                      - COALESCE(SUM(COALESCE(credit, 0)), 0) AS net
+             FROM operations_bancaires
+             WHERE exercice_id = ?
+               AND annee_mois IS NOT NULL
+               AND annee_mois != \'\'
+             GROUP BY annee_mois'
+        );
+        $stB->execute([$exerciceId]);
+        foreach ($stB->fetchAll() as $r) {
+            $mk = (string) $r['annee_mois'];
+            if (array_key_exists($mk, $banqueMois)) {
+                $banqueMois[$mk] = round((float) $r['net'], 2);
+            }
+        }
+
         return [
             'mois' => $mois,
             'lignes' => $lignes,
             'totaux_mois' => $totauxMois,
+            'banque_mois' => $banqueMois,
             'total_general' => round(array_sum($totauxMois), 2),
         ];
     }

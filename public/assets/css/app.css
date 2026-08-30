@@ -101,6 +101,15 @@ a:hover { text-decoration: underline; color: var(--vm-blue-dark); }
   border-bottom: 2px solid var(--vm-coral);
   border-radius: 4px 4px 0 0;
 }
+.nav-exercice {
+  margin-left: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--vm-coral);
+  white-space: nowrap;
+  align-self: center;
+}
 .user-meta { color: var(--muted); font-size: 0.85rem; }
 .user-meta a { color: var(--vm-blue); }
 .user-meta a:hover { color: var(--vm-coral); }
@@ -142,6 +151,13 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; color: var(--vm-blue-dark); }
   gap: 0.15rem;
   font-size: 0.8rem;
 }
+.evo-cell-courant {
+  padding: 0.35rem 0.45rem;
+  margin: -0.35rem -0.45rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent, #507890) 12%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--accent, #507890) 28%, transparent);
+}
 .evo-label { color: var(--muted); font-weight: 600; letter-spacing: 0.02em; }
 .evo-val { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 650; }
 .evo-pct { font-size: 0.78rem; font-weight: 650; }
@@ -152,6 +168,10 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; color: var(--vm-blue-dark); }
   font-size: 0.7rem;
   color: var(--muted);
   margin-top: 0.1rem;
+}
+tr.ca-annee-courante td {
+  background: color-mix(in srgb, var(--accent, #507890) 10%, transparent);
+  font-weight: 650;
 }
 
 @media (max-width: 860px) {
@@ -231,7 +251,14 @@ table.data tr.row-new td {
   background: #fff;
   color: var(--ink);
 }
-.cell-input.num { text-align: right; max-width: 6.5rem; margin-left: auto; display: block; }
+.cell-input.num {
+  text-align: right;
+  max-width: 7.75rem;
+  margin-left: auto;
+  display: block;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
 .cell-input:focus {
   outline: 2px solid rgba(80, 120, 144, 0.35);
   border-color: var(--vm-blue);
@@ -319,8 +346,8 @@ table.banque-grid .banque-libelle {
   padding: 0.18rem 0.3rem;
 }
 table.banque-grid .banque-amt {
-  width: 5.4rem;
-  max-width: 5.4rem;
+  width: 6.5rem;
+  max-width: 6.5rem;
   font-size: 0.8rem;
   padding: 0.18rem 0.28rem;
 }
@@ -331,19 +358,109 @@ table.banque-grid .cell-tri-banque {
 }
 table.banque-grid tr.banque-total-mvt > td {
   font-weight: 600;
-  border-top: 2px solid var(--line);
+  border-bottom: 1px solid var(--line);
   background: #f3f6f9;
   padding-top: 0.4rem;
   padding-bottom: 0.35rem;
 }
 table.banque-grid tr.banque-solde-crediteur > td {
   font-weight: 700;
-  border-top: 1px solid var(--line);
-  border-bottom: 2px solid var(--vm-blue);
+  border-top: 2px solid var(--vm-blue);
+  border-bottom: 1px solid var(--line);
   background: var(--vm-blue-soft);
   padding-top: 0.4rem;
   padding-bottom: 0.45rem;
 }
+table.banque-grid tr.banque-solde-ouverture > td {
+  border-top: 2px solid var(--vm-blue);
+}
+table.banque-grid .banque-col-del {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.15rem;
+  padding-right: 0.2rem;
+  text-align: center;
+  vertical-align: middle;
+}
+table.banque-grid .banque-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #e8b8bc;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--danger);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+table.banque-grid .banque-del:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+table.banque-grid .banque-del-locked {
+  display: inline-block;
+  width: 1.35rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35rem;
+  user-select: none;
+}
+table.banque-grid tr.banque-new-row > td {
+  background: #f3f8fb;
+  border-top: 1px dashed color-mix(in srgb, var(--accent, #507890) 35%, var(--line));
+}
+table.banque-grid .banque-date {
+  width: 100%;
+  max-width: 9.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.8);
+}
+table.banque-grid .banque-date:hover,
+table.banque-grid .banque-date:focus {
+  border-color: var(--line);
+  background: #fff;
+  outline: none;
+}
+table.banque-grid .banque-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #8bbf9f;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--ok, #2a7a4b);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+table.banque-grid .banque-add:hover {
+  background: #e8f5ec;
+  border-color: var(--ok, #2a7a4b);
+}
+table.banque-grid tr.banque-doublon > td {
+  background: #fff6e8;
+}
+table.banque-grid tr.banque-doublon .banque-del {
+  border-color: #e0a060;
+  color: #a05000;
+}
+
 table.banque-grid tr.banque-row-saving {
   opacity: 0.65;
 }
@@ -396,10 +513,20 @@ table.data tfoot tr.import-sous-total td {
   border-radius: 6px;
   background: var(--surface);
 }
+.banque-mois-lock-hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.82rem;
+}
 .banque-sous-total-hint {
   font-size: 0.8rem;
   font-weight: 400;
   margin-top: 0.15rem;
+}
+.banque-mvt-net {
+  font-weight: 500;
+  margin-left: 0.35rem;
+  white-space: nowrap;
 }
 .banque-tri-filter {
   position: relative;
@@ -602,6 +729,34 @@ body.page-planning .planning-footer {
 body.page-planning .app-footer {
   display: none;
 }
+
+/* Analytique : même logique de scroll (entête + TRI/libellé figés) */
+body.page-analytique {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+body.page-analytique .wrap {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  padding-bottom: 0.5rem;
+}
+body.page-analytique .analytique-scroll {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 12rem;
+}
+body.page-analytique .app-footer {
+  display: none;
+}
+
 .inline-filter {
   display: flex;
   align-items: center;
@@ -704,7 +859,7 @@ body.page-planning .app-footer {
 .planning-scroll {
   --pg-ref: 4.75rem;
   --pg-client: 8.5rem;
-  --pg-num: 5.4rem;
+  --pg-num: 6.2rem;
   --pg-left-client: var(--pg-ref);
   --pg-left-contrat: calc(var(--pg-ref) + var(--pg-client));
   --pg-left-n1: calc(var(--pg-left-contrat) + var(--pg-num));
@@ -773,7 +928,7 @@ table.planning-grid .col-restant {
   min-width: var(--pg-num);
   width: var(--pg-num);
 }
-table.planning-grid .col-mois { min-width: 4.5rem; }
+table.planning-grid .col-mois { min-width: 5.6rem; }
 table.planning-grid thead th.mois-courant {
   box-shadow: inset 0 -3px 0 var(--vm-coral);
   color: var(--vm-coral);
@@ -901,8 +1056,8 @@ table.planning-grid .mois-edit {
 table.planning-grid .cell-input.cell-mois {
   max-width: none;
   flex: 1 1 auto;
-  width: 3.6rem;
-  min-width: 3.2rem;
+  width: 5rem;
+  min-width: 4.5rem;
   height: 1.65rem;
   line-height: 1.55rem;
   padding: 0 0.2rem;
@@ -1327,17 +1482,33 @@ table.previsionnel-synth td {
   border-radius: 3px;
   vertical-align: middle;
 }
-table.previsionnel-grid input.prev-budget {
-  width: 6.5rem;
-  max-width: 100%;
+table.previsionnel-grid td.num,
+table.previsionnel-synth td.num {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
   text-align: right;
-  font: inherit;
-  font-weight: 650;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, ui-sans-serif, sans-serif;
+}
+table.previsionnel-grid input.prev-budget {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: block;
+  box-sizing: border-box;
+  text-align: right;
+  /* Ne pas utiliser font: inherit — le raccourci réinitialise tabular-nums */
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: inherit;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: 0;
   color: inherit;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid transparent;
   border-radius: 3px;
-  padding: 0.15rem 0.3rem;
+  padding: 0.1rem 0;
 }
 table.previsionnel-grid input.prev-budget:hover,
 table.previsionnel-grid input.prev-budget:focus {
@@ -1346,7 +1517,18 @@ table.previsionnel-grid input.prev-budget:focus {
   outline: none;
 }
 table.previsionnel-grid input.prev-ttc {
-  font-weight: 700;
+  font-weight: 400;
+}
+table.previsionnel-grid .prev-tva-auto {
+  display: block;
+  width: 100%;
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  color: inherit;
+  cursor: default;
+  user-select: none;
+  padding: 0.1rem 0;
 }
 #prev-status {
   min-height: 1.25rem;
@@ -1379,7 +1561,7 @@ table.previsionnel-grid input.prev-ttc {
   flex: 0 0 auto;
   text-align: right;
   font: inherit;
-  font-weight: 700;
+  font-weight: 400;
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 0.15rem 0.3rem;
@@ -1388,7 +1570,7 @@ table.previsionnel-grid input.prev-ttc {
 }
 .prev-marge-unit {
   flex: 0 0 auto;
-  font-weight: 650;
+  font-weight: 400;
 }
 .prev-row.prev-marge td:not(.prev-gap) {
   color: var(--ink);
@@ -1430,17 +1612,29 @@ table.analytique-grid tr.prev-neutre td { color: var(--ink); }
   max-height: calc(100vh - 12rem);
   margin-bottom: 1rem;
 }
+.wrap:has(.analytique-scroll) {
+  max-width: none;
+}
 table.analytique-grid {
   width: max-content;
   min-width: 100%;
-  border-collapse: separate;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0;
+  /* collapse + overflow:hidden (table.data) cassent sticky */
+  border-collapse: separate !important;
   border-spacing: 0;
+  overflow: visible !important;
+  background: transparent;
   font-size: 0.78rem;
 }
 table.analytique-grid th,
 table.analytique-grid td {
   padding: 0.35rem 0.45rem;
   white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+  background-clip: padding-box;
+  vertical-align: middle;
 }
 table.analytique-grid thead th {
   position: sticky;
@@ -1448,6 +1642,7 @@ table.analytique-grid thead th {
   z-index: 3;
   background: var(--vm-blue-soft);
   color: var(--vm-blue-dark);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 table.analytique-grid .sticky-col {
   position: sticky;
@@ -1455,8 +1650,14 @@ table.analytique-grid .sticky-col {
   background: #fff;
 }
 table.analytique-grid thead th.sticky-col {
-  z-index: 4;
+  z-index: 5;
   background: var(--vm-blue-soft);
+}
+table.analytique-grid tbody td.sticky-col {
+  background: #fff;
+}
+table.analytique-grid tr.analytique-row-bug > td.sticky-col {
+  background: #fde8ea;
 }
 table.analytique-grid tfoot td {
   position: sticky;
@@ -1464,14 +1665,47 @@ table.analytique-grid tfoot td {
   z-index: 2;
   background: var(--vm-blue-soft);
   font-weight: 650;
+  box-shadow: inset 0 1px 0 var(--line);
 }
-table.analytique-grid tfoot td.sticky-col { z-index: 3; }
-table.analytique-grid .col-tri { left: 0; min-width: 5.5rem; }
+table.analytique-grid tfoot td.sticky-col {
+  z-index: 4;
+  background: var(--vm-blue-soft);
+}
+table.analytique-grid .col-tri {
+  left: 0;
+  min-width: 5.5rem;
+  width: 5.5rem;
+  max-width: 5.5rem;
+}
 table.analytique-grid .col-lib {
   left: 5.5rem;
-  min-width: 10rem;
+  min-width: 11rem;
+  width: 11rem;
   max-width: 14rem;
   white-space: normal;
   box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18);
+}
+table.analytique-grid thead th.col-lib,
+table.analytique-grid tfoot td.col-lib {
+  box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18), inset 0 -1px 0 var(--line);
+}
+table.analytique-grid tfoot td.col-lib {
+  box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18), inset 0 1px 0 var(--line);
+}
+table.analytique-grid .num {
+  min-width: 5.2rem;
+}
+table.analytique-grid tfoot td.num {
+  color: var(--ink, #1c2428);
+  font-weight: 650;
+}
+table.analytique-grid tfoot td.analytique-ecart {
+  color: #c62828 !important;
+  font-weight: 700;
+  background: #fde8ea !important;
+}
+table.analytique-grid td.analytique-cell-bug {
+  background: #fde8ea !important;
+  box-shadow: inset 0 0 0 1px #f0c4c8;
 }
 

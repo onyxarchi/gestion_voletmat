@@ -22,22 +22,6 @@ $csrf = csrf_token();
 $saveUrl = page_url('planning');
 $titrePlanning = 'Planning Facturation';
 $moisCourantKey = date('Ym');
-if ($exercice) {
-    $moisFr = [
-        1 => 'janvier', 2 => 'février', 3 => 'mars', 4 => 'avril',
-        5 => 'mai', 6 => 'juin', 7 => 'juillet', 8 => 'août',
-        9 => 'septembre', 10 => 'octobre', 11 => 'novembre', 12 => 'décembre',
-    ];
-    $d0 = date_create((string) $exercice['date_debut']);
-    $d1 = date_create((string) $exercice['date_fin']);
-    if ($d0 && $d1) {
-        $a = ($moisFr[(int) $d0->format('n')] ?? '') . ' ' . $d0->format('Y');
-        $b = ($moisFr[(int) $d1->format('n')] ?? '') . ' ' . $d1->format('Y');
-        // « juillet 2025 - Décembre 2026 » (mois de fin capitalisé comme demandé)
-        $b = mb_strtoupper(mb_substr($b, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($b, 1, null, 'UTF-8');
-        $titrePlanning = 'Planning Facturation ' . $a . ' - ' . $b;
-    }
-}
 $moisKeys = array_column($mois, 'key');
 if ($moisKeys) {
     if ($moisCourantKey < $moisKeys[0]) {
@@ -138,7 +122,7 @@ if ($moisKeys) {
       $aid = (int) $ligne['id'];
       $rowId = 'row-' . $aid;
       $contratVal = $ligne['montant_contrat_ht'];
-      $contratStr = $contratVal === null ? '' : number_format((float) $contratVal, 2, ',', ' ');
+      $contratStr = $contratVal === null ? '' : number_format((float) $contratVal, 2, ',', ' ') . ' €';
     ?>
       <tr id="<?= e($rowId) ?>" data-affaire-id="<?= $aid ?>"<?= $rowClassAttr ?>>
         <td class="sticky-col col-ref">
@@ -165,7 +149,7 @@ if ($moisKeys) {
             if (!in_array($st, ['a_facturer', 'facture', 'litige', 'paye'], true)) {
                 $st = 'a_facturer';
             }
-            $moisVal = $cell ? number_format((float) $cell['montant_ht'], 2, ',', ' ') : '';
+            $moisVal = $cell ? number_format((float) $cell['montant_ht'], 2, ',', ' ') . ' €' : '';
             $alerteFacture = $cell && $st === 'paye' && !empty($cell['alerte_facture']);
             $ecartValide = $cell && $st === 'paye' && !empty($cell['ecart_valide']);
         ?>
@@ -227,7 +211,7 @@ if ($moisKeys) {
     </div>
     <?php if (!empty($objectifInfo)): ?>
     <div class="card" data-objectif="<?= e((string) $objectifInfo['objectif']) ?>">
-      <div class="label">Objectif de l’année</div>
+      <div class="label">Objectif de l’exercice</div>
       <div class="value"><?= euro((float) $objectifInfo['objectif']) ?></div>
     </div>
     <div class="card <?= !empty($objectifInfo['atteint']) ? 'card-ok' : 'card-ko' ?>" data-kpi="objectif-statut">

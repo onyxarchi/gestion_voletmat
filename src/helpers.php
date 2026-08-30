@@ -53,13 +53,13 @@ function take_flashes(): array
     return is_array($f) ? $f : [];
 }
 
-/** Format monétaire FR : 1 234,56 € */
+/** Format monétaire FR : 1 234,56 € (espace figure pour aligner les virgules). */
 function euro(?float $amount): string
 {
     if ($amount === null) {
         return '—';
     }
-    return number_format($amount, 2, ',', ' ') . ' €';
+    return number_format($amount, 2, ',', "\u{2007}") . "\u{00A0}€";
 }
 
 function wants_json(): bool

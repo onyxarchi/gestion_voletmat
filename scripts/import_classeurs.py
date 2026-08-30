@@ -306,7 +306,18 @@ def import_banque_n5(con: sqlite3.Connection, ws, eid: int) -> int:
             if not exists:
                 # Ne pas créer de TRI hors modèle (ex. ASS/CLE/FBQ du N4)
                 tri_s = None
-        mois = date_op[:4] + date_op[5:7]
+        # Colonne MOIS (G) = mois du relevé Excel (peut différer de la date d’opération)
+        mois_cell = ws.cell(r, 7).value
+        mois = None
+        if mois_cell is not None and str(mois_cell).strip() != "":
+            raw = str(mois_cell).strip().replace("-", "").replace("/", "")
+            if re.fullmatch(r"\d{6}", raw):
+                mois = raw
+            elif re.fullmatch(r"\d{4}\.\d+", raw):
+                # Excel parfois numérique 202507.0
+                mois = raw.split(".")[0]
+        if not mois:
+            mois = date_op[:4] + date_op[5:7]
         emp = empreinte(date_op, libelle, debit, credit)
         try:
             con.execute(

@@ -15,9 +15,35 @@ $nav = [
     'exercices' => 'Exercices',
     'export' => 'Export',
 ];
+$exerciceHeader = null;
+$exerciceHeaderLabel = '';
+if ($user) {
+    try {
+        $exerciceHeader = exercice_courant(\Voletmat\Database::pdo());
+    } catch (\Throwable) {
+        $exerciceHeader = null;
+    }
+    if ($exerciceHeader) {
+        $moisFr = [
+            1 => 'janvier', 2 => 'février', 3 => 'mars', 4 => 'avril',
+            5 => 'mai', 6 => 'juin', 7 => 'juillet', 8 => 'août',
+            9 => 'septembre', 10 => 'octobre', 11 => 'novembre', 12 => 'décembre',
+        ];
+        $d0 = date_create((string) ($exerciceHeader['date_debut'] ?? ''));
+        $d1 = date_create((string) ($exerciceHeader['date_fin'] ?? ''));
+        $code = (string) ($exerciceHeader['code'] ?? '');
+        if ($d0 && $d1 && $code !== '') {
+            $a = ($moisFr[(int) $d0->format('n')] ?? '') . ' ' . $d0->format('Y');
+            $b = ($moisFr[(int) $d1->format('n')] ?? '') . ' ' . $d1->format('Y');
+            $b = mb_strtoupper(mb_substr($b, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($b, 1, null, 'UTF-8');
+            $exerciceHeaderLabel = 'Exercice ' . $code . ' : ' . $a . ' - ' . $b;
+        }
+    }
+}
 $bodyClass = match ($page ?? '') {
     'login' => 'page-login',
     'planning' => 'page-planning',
+    'analytique' => 'page-analytique',
     default => '',
 };
 ?>
@@ -48,6 +74,9 @@ $bodyClass = match ($page ?? '') {
     <?php foreach ($nav as $key => $label): ?>
       <a href="<?= e(page_url($key)) ?>" class="<?= $page === $key ? 'active' : '' ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
+    <?php if ($exerciceHeaderLabel !== ''): ?>
+      <span class="nav-exercice" title="<?= e($exerciceHeaderLabel) ?>"><?= e($exerciceHeaderLabel) ?></span>
+    <?php endif; ?>
   </nav>
   <div class="user-meta">
     <?= e($user['nom'] ?: $user['login']) ?>

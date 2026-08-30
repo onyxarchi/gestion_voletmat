@@ -33,6 +33,9 @@
     var prog = data.progression || {};
     var canvasProg = document.getElementById('chart-progression');
     if (canvasProg && prog.labels && prog.labels.length) {
+      var progColors = (prog.labels || []).map(function (_, i) {
+        return (prog.en_cours || [])[i] ? coral : blue;
+      });
       new Chart(canvasProg, {
         type: 'bar',
         data: {
@@ -40,7 +43,7 @@
           datasets: [{
             label: 'CA HT',
             data: prog.values,
-            backgroundColor: blue,
+            backgroundColor: progColors,
             borderRadius: 4,
             maxBarThickness: 64,
           }],
@@ -80,6 +83,13 @@
     var ann = data.annees || {};
     var canvasAnn = document.getElementById('chart-annees');
     if (canvasAnn && ann.labels && ann.labels.length) {
+      var annEnCours = ann.en_cours || [];
+      var annBlue = ann.labels.map(function (_, i) {
+        return annEnCours[i] ? '#3a6a82' : blue;
+      });
+      var annCoral = ann.labels.map(function (_, i) {
+        return annEnCours[i] ? '#b84850' : coral;
+      });
       new Chart(canvasAnn, {
         type: 'bar',
         data: {
@@ -88,14 +98,14 @@
             {
               label: 'Janv. / juin',
               data: ann.janv_juin,
-              backgroundColor: blue,
+              backgroundColor: annBlue,
               borderRadius: 3,
               maxBarThickness: 40,
             },
             {
               label: 'Juil. / déc.',
               data: ann.juil_dec,
-              backgroundColor: coral,
+              backgroundColor: annCoral,
               borderRadius: 3,
               maxBarThickness: 40,
             },

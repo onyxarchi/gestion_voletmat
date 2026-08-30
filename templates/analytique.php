@@ -7,37 +7,15 @@ ob_start();
 $mois = $analytique['mois'] ?? [];
 $lignes = $analytique['lignes'] ?? [];
 $totauxMois = $analytique['totaux_mois'] ?? [];
-$totalGeneral = (float) ($analytique['total_general'] ?? 0);
+$banqueMois = $analytique['banque_mois'] ?? [];
 ?>
 <h1>Compta analytique</h1>
-<?php if ($exercice): ?>
-  <p class="lead">
-    Sommes par code TRI et par mois (banque) —
-    <strong><?= e($exercice['libelle']) ?></strong>.
-  </p>
-<?php else: ?>
-  <p class="lead">Aucun exercice pour la date du jour.</p>
-<?php endif; ?>
-
 <?php if (!$exercice): ?>
+  <p class="lead">Aucun exercice pour la date du jour.</p>
   <div class="empty">Impossible d’afficher l’analytique sans exercice.</div>
 <?php elseif (!$lignes): ?>
   <div class="empty">Aucune opération bancaire classée pour cet exercice.</div>
 <?php else: ?>
-<div class="cards cards-compact">
-  <div class="card">
-    <div class="label">Codes TRI</div>
-    <div class="value"><?= count($lignes) ?></div>
-  </div>
-  <div class="card">
-    <div class="label">Mois</div>
-    <div class="value"><?= count($mois) ?></div>
-  </div>
-  <div class="card">
-    <div class="label">Total</div>
-    <div class="value"><?= euro($totalGeneral) ?></div>
-  </div>
-</div>
 
 <div class="planning-scroll analytique-scroll">
   <table class="data analytique-grid">
@@ -54,28 +32,47 @@ $totalGeneral = (float) ($analytique['total_general'] ?? 0);
     <tbody>
     <?php foreach ($lignes as $l):
         $fam = preg_replace('/[^a-z_]/', '', (string) ($l['famille'] ?? 'neutre')) ?: 'neutre';
+        $anomMois = array_fill_keys($l['anomalies_mois'] ?? [], true);
+        $rowBug = $anomMois !== [];
     ?>
-      <tr class="prev-row prev-<?= e($fam) ?>">
+      <tr class="prev-row prev-<?= e($fam) ?><?= $rowBug ? ' analytique-row-bug' : '' ?>">
         <td class="sticky-col col-tri"><strong><?= e($l['code']) ?></strong></td>
         <td class="sticky-col col-lib"><?= e($l['libelle']) ?></td>
         <?php foreach ($mois as $m):
             $v = (float) ($l['mois'][$m['key']] ?? 0);
+            $cellBug = isset($anomMois[$m['key']]);
         ?>
-          <td class="num"><?= abs($v) < 0.005 ? '' : euro($v) ?></td>
+          <td class="num<?= $cellBug ? ' analytique-cell-bug' : '' ?>"
+              <?= $cellBug ? ' title="Anomalie : vérifier le TRI (ex. VENTE en débit ou TRI vide)"' : '' ?>>
+            <?= abs($v) < 0.005 ? '' : euro($v) ?>
+          </td>
         <?php endforeach; ?>
-        <td class="num"><strong><?= euro((float) $l['total']) ?></strong></td>
+        <td class="num">
+          <strong><?= euro((float) $l['total']) ?></strong>
+        </td>
       </tr>
     <?php endforeach; ?>
     </tbody>
     <tfoot>
       <tr>
-        <td class="sticky-col col-tri" colspan="2"><strong>Totaux</strong></td>
+        <td class="sticky-col col-tri"><strong>Totaux</strong></td>
+        <td class="sticky-col col-lib"></td>
         <?php foreach ($mois as $m):
-            $t = (float) ($totauxMois[$m['key']] ?? 0);
+            $key = (string) $m['key'];
+            $t = (float) ($totauxMois[$key] ?? 0);
+            $bq = (float) ($banqueMois[$key] ?? 0);
+            $ecart = abs($t - $bq) >= 0.02;
+            $title = $ecart
+                ? 'Banque (débits − crédits) : ' . number_format($bq, 2, ',', ' ')
+                    . ' € — écart ' . number_format($t - $bq, 2, ',', ' ') . ' €'
+                : '= banque débits − crédits (' . number_format($bq, 2, ',', ' ') . ' €)';
         ?>
-          <td class="num"><?= abs($t) < 0.005 ? '' : euro($t) ?></td>
+          <td class="num<?= $ecart ? ' analytique-ecart' : '' ?>"
+              title="<?= e($title) ?>">
+            <?= abs($t) < 0.005 ? '' : euro($t) ?>
+          </td>
         <?php endforeach; ?>
-        <td class="num"><strong><?= euro($totalGeneral) ?></strong></td>
+        <td class="num"></td>
       </tr>
     </tfoot>
   </table>

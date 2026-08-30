@@ -131,7 +131,7 @@ $saveUrl = page_url('factures');
         <input class="cell-input" form="<?= e($formId) ?>" type="text" name="client" placeholder="Client" required autocomplete="organization">
       </td>
       <td class="num">
-        <input class="cell-input num" form="<?= e($formId) ?>" type="text" name="ht" id="f-ht" placeholder="0,00" inputmode="decimal" required>
+        <input class="cell-input num" form="<?= e($formId) ?>" type="text" name="ht" id="f-ht" placeholder="0,00 €" inputmode="decimal" required>
       </td>
       <td class="num">
         <input class="cell-input num" form="<?= e($formId) ?>" type="text" name="taux_tva" id="f-taux" value="20" inputmode="decimal" required title="Taux en %">
@@ -201,11 +201,11 @@ $saveUrl = page_url('factures');
 (function () {
   function parseFr(v) {
     if (!v) return null;
-    var n = parseFloat(String(v).replace(/[\s\u00a0\u202f]/g, '').replace(',', '.'));
+    var n = parseFloat(String(v).replace(/[\s\u00a0\u202f€]/g, '').replace(',', '.'));
     return isFinite(n) ? n : null;
   }
   function formatAmountInput(raw) {
-    var s = String(raw == null ? '' : raw).replace(/[\s\u00a0\u202f]/g, '').trim();
+    var s = String(raw == null ? '' : raw).replace(/[\s\u00a0\u202f€]/g, '').trim();
     if (s === '' || s === '—' || s === '-') return '';
     s = s.replace(',', '.');
     var n = Number(s);
@@ -215,7 +215,7 @@ $saveUrl = page_url('factures');
     var fixed = (Math.round(abs * 100) / 100).toFixed(2);
     var parts = fixed.split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-    return (neg ? '−' : '') + parts[0] + ',' + parts[1];
+    return (neg ? '−' : '') + parts[0] + ',' + parts[1] + ' €';
   }
   function euro(n) {
     var neg = n < 0;

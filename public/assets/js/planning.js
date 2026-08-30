@@ -34,14 +34,14 @@
     return (neg ? '−' : '') + parts[0] + ',' + parts[1];
   }
 
-  /** Toujours 2 décimales + espace milliers FR (ex. 1000 → 1 000,00). Vide reste vide. */
+  /** Toujours 2 décimales + espace milliers FR + € (ex. 1000 → 1 000,00 €). Vide reste vide. */
   function formatAmountInput(raw) {
-    var s = String(raw == null ? '' : raw).replace(/[\s\u00a0\u202f]/g, '').trim();
+    var s = String(raw == null ? '' : raw).replace(/[\s\u00a0\u202f€]/g, '').trim();
     if (s === '' || s === '—' || s === '-') return '';
     s = s.replace(',', '.');
     var n = Number(s);
     if (!Number.isFinite(n)) return String(raw);
-    return formatNbFr(n);
+    return formatNbFr(n) + ' €';
   }
 
   function normalizeAmountFields(tr) {

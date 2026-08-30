@@ -16,11 +16,13 @@ $chartProgression = [
         static fn ($r) => $r['evolution'] === null ? null : round((float) $r['evolution'] * 100, 1),
         $progression
     ),
+    'en_cours' => array_map(static fn ($r) => !empty($r['en_cours']), $progression),
 ];
 $chartAnnees = [
     'labels' => array_map(static fn ($r) => (string) $r['annee'], $annees),
     'janv_juin' => array_map(static fn ($r) => round((float) $r['janv_juin'], 2), $annees),
     'juil_dec' => array_map(static fn ($r) => round((float) $r['juil_dec'], 2), $annees),
+    'en_cours' => array_map(static fn ($r) => !empty($r['en_cours']), $annees),
 ];
 $chartMensuel = [
     'labels' => array_column($mensuel, 'label'),
@@ -54,17 +56,13 @@ $evoLabel = $evo === null ? '—' : (($evo >= 0 ? '+' : '') . number_format($evo
     <div class="label">CA HT facturé (exercice)</div>
     <div class="value"><?= euro($stats['ca_ht'] ?? null) ?></div>
   </div>
-  <div class="card">
-    <div class="label">Lignes facturation</div>
-    <div class="value"><?= (int) ($stats['nb_factures'] ?? 0) ?></div>
-  </div>
 </div>
 
 <div class="panel chart-panel">
   <h2 style="margin-top:0">CA — Vol&amp;Mat</h2>
   <p class="chart-hint">
     Historique juil.–juin (12 mois) jusqu’à 2024-25 ·
-    <strong>2025-26 = exercice long</strong> juil. 2025 → déc. 2026 (18 mois) ·
+    <strong>2025-26 = exercice long</strong> juil. 2025 → déc. 2026 (18 mois, CA factures à jour) ·
     puis <strong>années civiles</strong> à partir de 2027.
     Les % comparent des périodes de durées différentes.
   </p>
@@ -74,8 +72,8 @@ $evoLabel = $evo === null ? '—' : (($evo >= 0 ? '+' : '') . number_format($evo
   <?php if ($progression): ?>
   <div class="evo-row">
     <?php foreach ($progression as $p): ?>
-      <div class="evo-cell">
-        <span class="evo-label"><?= e($p['label']) ?></span>
+      <div class="evo-cell<?= !empty($p['en_cours']) ? ' evo-cell-courant' : '' ?>">
+        <span class="evo-label"><?= e($p['label']) ?><?= !empty($p['en_cours']) ? ' · en cours' : '' ?></span>
         <span class="evo-val"><?= euro((float) $p['ca_ht']) ?></span>
         <?php if ($p['evolution'] !== null): ?>
           <span class="evo-pct <?= $p['evolution'] >= 0 ? 'up' : 'down' ?>">
@@ -123,8 +121,8 @@ $evoLabel = $evo === null ? '—' : (($evo >= 0 ? '+' : '') . number_format($evo
       </thead>
       <tbody>
         <?php foreach ($annees as $row): ?>
-          <tr>
-            <td>CA <?= (int) $row['annee'] ?></td>
+          <tr<?= !empty($row['en_cours']) ? ' class="ca-annee-courante"' : '' ?>>
+            <td>CA <?= (int) $row['annee'] ?><?= !empty($row['en_cours']) ? ' · en cours' : '' ?></td>
             <td class="num"><?= euro((float) $row['janv_juin']) ?></td>
             <td class="num"><?= euro((float) $row['juil_dec']) ?></td>
             <td class="num"><strong><?= euro((float) $row['annee_totale']) ?></strong></td>

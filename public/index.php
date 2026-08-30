@@ -87,8 +87,8 @@ switch ($page) {
                 $date = trim((string) ($_POST['date_facture'] ?? ''));
                 $client = trim((string) ($_POST['client'] ?? ''));
                 $htRaw = str_replace(
-                    [' ', ',', "\xc2\xa0", "\xe2\x80\xaf"],
-                    ['', '.', '', ''],
+                    [' ', ',', "\xc2\xa0", "\xe2\x80\xaf", '€'],
+                    ['', '.', '', '', ''],
                     trim((string) ($_POST['ht'] ?? '0'))
                 );
                 $tauxRaw = str_replace(
@@ -354,6 +354,192 @@ switch ($page) {
                         'credit' => $credit,
                     ]);
                 }
+                redirect('banque');
+            }
+
+            if ($action === 'creer_ligne') {
+                $ajax = wants_json();
+                $eid = (int) $exercice['id'];
+                $parse = static function (string $raw): ?float {
+                    $raw = str_replace(
+                        [' ', ',', "\xc2\xa0", "\xe2\x80\xaf", '€', '−'],
+                        ['', '.', '', '', '', '-'],
+                        trim($raw)
+                    );
+                    if ($raw === '') {
+                        return null;
+                    }
+                    if (!is_numeric($raw)) {
+                        return null;
+                    }
+                    return round((float) $raw, 2);
+                };
+                $dateOp = trim((string) ($_POST['date_operation'] ?? ''));
+                $dateVal = trim((string) ($_POST['date_valeur'] ?? ''));
+                $libelle = trim(preg_replace('/\s+/u', ' ', (string) ($_POST['libelle'] ?? '')) ?? '');
+                $debitIn = $parse((string) ($_POST['debit'] ?? ''));
+                $creditIn = $parse((string) ($_POST['credit'] ?? ''));
+                $tri = trim((string) ($_POST['categorie_code'] ?? ''));
+
+                $fail = static function (string $msg) use ($ajax): void {
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => $msg], 400);
+                    }
+                    flash('erreur', $msg);
+                    redirect('banque');
+                };
+
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateOp)) {
+                    $fail('Date d’opération invalide.');
+                }
+                if ($dateVal === '') {
+                    $dateVal = $dateOp;
+                }
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateVal)) {
+                    $fail('Date de valeur invalide.');
+                }
+                if ($libelle === '') {
+                    $fail('Libellé obligatoire.');
+                }
+
+                $moisOp = annee_mois_from_date($dateOp);
+                $stMax = $pdo->prepare(
+                    "SELECT MAX(annee_mois) FROM operations_bancaires
+                     WHERE exercice_id = ?
+                       AND annee_mois IS NOT NULL
+                       AND annee_mois != ''
+                       AND annee_mois != '000000'"
+                );
+                $stMax->execute([$eid]);
+                $moisOuvert = (string) ($stMax->fetchColumn() ?: '');
+                if ($moisOuvert !== '' && $moisOp !== $moisOuvert) {
+                    $fail('La date doit être dans le mois en cours (' . $moisOuvert . ').');
+                }
+
+                $debit = null;
+                $credit = null;
+                $hasD = $debitIn !== null && abs($debitIn) >= 0.005;
+                $hasC = $creditIn !== null && abs($creditIn) >= 0.005;
+                if ($hasD && $hasC) {
+                    $side = (string) ($_POST['side'] ?? 'debit');
+                    if ($side === 'credit') {
+                        $credit = abs($creditIn);
+                    } else {
+                        $debit = -abs($debitIn);
+                    }
+                } elseif ($hasD) {
+                    $debit = -abs($debitIn);
+                } elseif ($hasC) {
+                    $credit = abs($creditIn);
+                } else {
+                    $fail('Indiquez un débit ou un crédit.');
+                }
+
+                $triDb = null;
+                if ($tri !== '') {
+                    if (!BanqueTriSuggester::codeAutorise($tri)) {
+                        $fail('Code TRI hors modèle N5.');
+                    }
+                    $chk = $pdo->prepare('SELECT code FROM categories WHERE code = ?');
+                    $chk->execute([$tri]);
+                    if (!$chk->fetch()) {
+                        $fail('Code TRI inconnu.');
+                    }
+                    $triDb = $tri;
+                }
+
+                $emp = empreinte_operation($dateOp, $libelle, $debit, $credit);
+                $chk = $pdo->prepare('SELECT id FROM operations_bancaires WHERE empreinte = ?');
+                $chk->execute([$emp]);
+                if ($chk->fetch()) {
+                    $fail('Ligne déjà existante (doublon).');
+                }
+
+                $pdo->prepare(
+                    'INSERT INTO operations_bancaires
+                    (exercice_id, date_operation, date_valeur, libelle, debit, credit, categorie_code, annee_mois, source, empreinte)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)'
+                )->execute([
+                    $eid,
+                    $dateOp,
+                    $dateVal,
+                    $libelle,
+                    $debit,
+                    $credit,
+                    $triDb,
+                    $moisOp,
+                    'manuel',
+                    $emp,
+                ]);
+                $oid = (int) $pdo->lastInsertId();
+
+                if ($ajax) {
+                    json_out([
+                        'ok' => true,
+                        'operation' => [
+                            'id' => $oid,
+                            'date_operation' => $dateOp,
+                            'date_valeur' => $dateVal,
+                            'date_operation_fr' => date_fr($dateOp),
+                            'date_valeur_fr' => date_fr($dateVal),
+                            'libelle' => $libelle,
+                            'debit' => $debit,
+                            'credit' => $credit,
+                            'categorie_code' => $triDb ?? '',
+                            'annee_mois' => $moisOp,
+                        ],
+                    ]);
+                }
+                flash('ok', 'Ligne ajoutée.');
+                redirect('banque');
+            }
+
+            if ($action === 'suppr_ligne') {
+                $ajax = wants_json();
+                $oid = (int) ($_POST['operation_id'] ?? 0);
+                $eid = (int) $exercice['id'];
+                $st = $pdo->prepare(
+                    'SELECT id, annee_mois, date_operation FROM operations_bancaires
+                     WHERE id = ? AND (exercice_id = ? OR exercice_id IS NULL)'
+                );
+                $st->execute([$oid, $eid]);
+                $row = $st->fetch();
+                if (!$row) {
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => 'Opération introuvable.'], 404);
+                    }
+                    flash('erreur', 'Opération introuvable.');
+                    redirect('banque');
+                }
+                $moisOp = trim((string) ($row['annee_mois'] ?? ''));
+                if ($moisOp === '' && !empty($row['date_operation'])) {
+                    $moisOp = annee_mois_from_date((string) $row['date_operation']);
+                }
+                $stMax = $pdo->prepare(
+                    "SELECT MAX(annee_mois) FROM operations_bancaires
+                     WHERE exercice_id = ?
+                       AND annee_mois IS NOT NULL
+                       AND annee_mois != ''
+                       AND annee_mois != '000000'"
+                );
+                $stMax->execute([$eid]);
+                $moisOuvert = (string) ($stMax->fetchColumn() ?: '');
+                if ($moisOuvert !== '' && $moisOp !== '' && $moisOp < $moisOuvert) {
+                    $msg = 'Mois ' . $moisOp . ' validé (un mois plus récent existe) — suppression impossible.';
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => $msg], 403);
+                    }
+                    flash('erreur', $msg);
+                    redirect('banque');
+                }
+                $pdo->prepare(
+                    'DELETE FROM operations_bancaires
+                     WHERE id = ? AND (exercice_id = ? OR exercice_id IS NULL)'
+                )->execute([$oid, $eid]);
+                if ($ajax) {
+                    json_out(['ok' => true, 'operation_id' => $oid]);
+                }
+                flash('ok', 'Ligne supprimée.');
                 redirect('banque');
             }
         }
@@ -819,8 +1005,8 @@ switch ($page) {
                 $reference = trim((string) ($_POST['reference'] ?? ''));
                 $client = trim((string) ($_POST['client'] ?? ''));
                 $contratRaw = str_replace(
-                    [' ', ',', "\xc2\xa0", "\xe2\x80\xaf"],
-                    ['', '.', '', ''],
+                    [' ', ',', "\xc2\xa0", "\xe2\x80\xaf", '€'],
+                    ['', '.', '', '', ''],
                     trim((string) ($_POST['montant_contrat_ht'] ?? ''))
                 );
                 $contrat = $contratRaw === '' ? null : (is_numeric($contratRaw) ? (float) $contratRaw : null);
@@ -902,8 +1088,8 @@ switch ($page) {
                             continue;
                         }
                         $raw = str_replace(
-                            [' ', ',', "\xc2\xa0", "\xe2\x80\xaf"],
-                            ['', '.', '', ''],
+                            [' ', ',', "\xc2\xa0", "\xe2\x80\xaf", '€'],
+                            ['', '.', '', '', ''],
                             trim((string) $raw)
                         );
                         if ($raw === '' || !is_numeric($raw) || (float) $raw == 0.0) {
@@ -980,8 +1166,14 @@ switch ($page) {
         ];
         $objectifInfo = null;
         if ($exercice) {
-            $planning = (new PlanningService($pdo))->grille((int) $exercice['id']);
-            if ($exercice['objectif_ca_ht'] !== null && $exercice['objectif_ca_ht'] !== '') {
+            $eid = (int) $exercice['id'];
+            $planning = (new PlanningService($pdo))->grille($eid);
+            // Même chiffre que « OBJECTIF CA HT » du prévisionnel
+            $grillePrev = (new PrevisionnelService($pdo))->grille($eid);
+            $objectif = round((float) ($grillePrev['objectif_ca_ht'] ?? 0), 2);
+            $pdo->prepare('UPDATE exercices SET objectif_ca_ht = ? WHERE id = ?')
+                ->execute([$objectif, $eid]);
+            if ($objectif > 0.005) {
                 $totStat = $planning['totaux_statut'] ?? [];
                 $factureEnCours = round((float) ($totStat['paye'] ?? 0), 2);
                 $restantAFacturer = round(
@@ -990,8 +1182,7 @@ switch ($page) {
                     + (float) ($totStat['litige'] ?? 0),
                     2
                 );
-                $objectif = round((float) $exercice['objectif_ca_ht'], 2);
-                // Écart = CA année (objectif) − facturé en cours (bleu) − restant à facturer (V+R+J)
+                // Écart = objectif exercice − facturé en cours (bleu) − restant à facturer (V+R+J)
                 $ecart = round($objectif - $factureEnCours - $restantAFacturer, 2);
                 $objectifInfo = [
                     'objectif' => $objectif,
@@ -1006,6 +1197,9 @@ switch ($page) {
         break;
 
     case 'analytique':
+        // Toujours frais : grille dérivée des opérations bancaires (pas de table miroir)
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
         $exercice = exercice_courant($pdo);
         $analytique = ['mois' => [], 'lignes' => [], 'totaux_mois' => [], 'total_general' => 0.0];
         if ($exercice) {
@@ -1050,12 +1244,16 @@ switch ($page) {
                     return round((float) $raw, 2);
                 };
                 $ht = $parse((string) ($_POST['montant_ht'] ?? '0'));
-                $tva = $parse((string) ($_POST['montant_tva'] ?? '0'));
-                $ttc = $parse((string) ($_POST['montant_ttc'] ?? '0'));
-                // Si TTC vide / 0 mais HT ou TVA saisis → recalcul
-                if (abs($ttc) < 0.005 && (abs($ht) > 0.005 || abs($tva) > 0.005)) {
-                    $ttc = round($ht + $tva, 2);
+                $field = trim((string) ($_POST['field'] ?? 'ht'));
+                $ttcIn = $parse((string) ($_POST['montant_ttc'] ?? '0'));
+                if ($field === 'ttc') {
+                    $parts = PrevisionnelService::montantsDepuisTtc($code, $ttcIn);
+                } else {
+                    $parts = PrevisionnelService::montantsDepuisHt($code, $ht);
                 }
+                $ht = $parts['ht'];
+                $tva = $parts['tva'];
+                $ttc = $parts['ttc'];
                 $eid = (int) $exercice['id'];
                 $pdo->prepare(
                     'INSERT INTO budgets (exercice_id, categorie_code, montant_ht, montant_tva, montant_ttc)

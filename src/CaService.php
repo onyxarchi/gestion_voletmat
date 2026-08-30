@@ -114,11 +114,8 @@ final class CaService
 
         $lignes = [];
         for ($y = $y0; $y <= $y1; $y++) {
-            if (isset($byYear[$y])) {
-                $caHt = (float) $byYear[$y]['annee_totale'];
-            } else {
-                $caHt = $this->caHtBetween(sprintf('%d-01-01', $y), sprintf('%d-12-31', $y));
-            }
+            // Toujours depuis les factures (se met à jour), pas l’historique Excel figé
+            $caHt = $this->caHtBetween(sprintf('%d-01-01', $y), sprintf('%d-12-31', $y));
             $caMar = (float) ($marParAnnee[$y] ?? 0.0);
             $pct = $caHt > 0.005 ? ($caMar / $caHt) : null;
             $lignes[] = [
@@ -213,24 +210,26 @@ final class CaService
      */
     private function mergeAnnees(array $fromFactures): array
     {
+        $anneeCourante = (int) date('Y');
         $years = array_unique(array_merge(
             array_keys(self::EXCEL_SEMESTRES),
-            array_keys($fromFactures)
+            array_keys($fromFactures),
+            [$anneeCourante] // toujours afficher l’année civile en cours
         ));
         sort($years);
 
         $rows = [];
         foreach ($years as $y) {
             $excel = self::EXCEL_SEMESTRES[$y] ?? null;
-            $fac = $fromFactures[$y] ?? null;
+            $fac = $fromFactures[$y] ?? ['janv_juin' => 0.0, 'juil_dec' => 0.0];
 
-            if ($y <= 2024 && $excel) {
+            if ($y >= 2025) {
+                // À partir de N5 / années ouvertes : 100 % factures (se met à jour)
+                $jj = (float) ($fac['janv_juin'] ?? 0.0);
+                $jd = (float) ($fac['juil_dec'] ?? 0.0);
+            } elseif ($y <= 2024 && $excel) {
                 $jj = (float) $excel['janv_juin'];
                 $jd = (float) $excel['juil_dec'];
-            } elseif ($y === 2025) {
-                // Janv–juin 2025 = fin N4 (Excel) ; juil–déc 2025 = début N5 (factures)
-                $jj = (float) ($excel['janv_juin'] ?? ($fac['janv_juin'] ?? 0.0));
-                $jd = (float) ($fac['juil_dec'] ?? 0.0);
             } else {
                 $jj = (float) ($fac['janv_juin'] ?? 0.0);
                 $jd = (float) ($fac['juil_dec'] ?? 0.0);
@@ -241,6 +240,7 @@ final class CaService
                 'janv_juin' => $jj,
                 'juil_dec' => $jd,
                 'annee_totale' => $jj + $jd,
+                'en_cours' => $y === $anneeCourante,
             ];
         }
         return $rows;
@@ -275,20 +275,23 @@ final class CaService
                 'kind' => 'fiscal_juil_juin',
                 'debut' => sprintf('%d-07-01', $y),
                 'fin' => sprintf('%d-06-30', $y + 1),
+                'en_cours' => false,
             ];
         }
 
-        // 2) Exercice long N5 (18 mois) — pas la formule juil+janv seule
+        // 2) Exercice long N5 (18 mois) — CA factures à jour (jusqu’à aujourd’hui inclus)
+        $today = date('Y-m-d');
+        $n5FinAffiche = $today < self::N5_FIN ? $today : self::N5_FIN;
         $periods[] = [
             'label' => '2025-26',
-            'ca_ht' => $this->caHtBetween(self::N5_DEBUT, self::N5_FIN),
+            'ca_ht' => $this->caHtBetween(self::N5_DEBUT, $n5FinAffiche),
             'kind' => 'exercice_long',
             'debut' => self::N5_DEBUT,
             'fin' => self::N5_FIN,
+            'en_cours' => $today >= self::N5_DEBUT && $today <= self::N5_FIN,
         ];
 
         // 3) Années civiles à partir de 2027
-        $today = date('Y-m-d');
         $lastCivil = max(2027, (int) date('Y'));
         // Inclure les exercices civils déjà créés en base
         $st = $this->pdo->query(
@@ -303,7 +306,8 @@ final class CaService
             $fin = (string) $ex['date_fin'];
             $y = (int) substr($debut, 0, 4);
             $covered[$y] = true;
-            $ca = $this->caHtBetween($debut, $fin);
+            $finAffiche = ($today < $fin) ? $today : $fin;
+            $ca = $this->caHtBetween($debut, $finAffiche);
             if ($ca <= 0.0 && $fin > $today) {
                 continue; // pas encore de CA sur un exercice futur
             }
@@ -315,6 +319,7 @@ final class CaService
                 'kind' => 'annee_civile',
                 'debut' => $debut,
                 'fin' => $fin,
+                'en_cours' => $today >= $debut && $today <= $fin,
             ];
         }
         for ($y = 2027; $y <= $lastCivil; $y++) {
@@ -323,7 +328,8 @@ final class CaService
             }
             $debut = sprintf('%d-01-01', $y);
             $fin = sprintf('%d-12-31', $y);
-            $ca = $this->caHtBetween($debut, $fin);
+            $finAffiche = ($today < $fin) ? $today : $fin;
+            $ca = $this->caHtBetween($debut, $finAffiche);
             if ($ca <= 0.0 && $debut > $today) {
                 continue;
             }
@@ -336,6 +342,7 @@ final class CaService
                 'kind' => 'annee_civile',
                 'debut' => $debut,
                 'fin' => $fin,
+                'en_cours' => $today >= $debut && $today <= $fin,
             ];
         }
 

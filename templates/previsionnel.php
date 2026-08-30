@@ -24,7 +24,8 @@ $fmtInput = static function (float $n): string {
     if (abs($n) < 0.005) {
         return '';
     }
-    return number_format($n, 2, ',', ' ');
+    // Espace figure (U+2007) = largeur d’un chiffre → virgules alignées
+    return number_format($n, 2, ',', "\u{2007}") . "\u{00A0}€";
 };
 $fmtPct = static function (float $n): string {
     if (abs($n) < 0.00005) {
@@ -83,15 +84,27 @@ $fmtPct = static function (float $n): string {
       $ecart = (float) $l['ecart'];
       $editable = ($l['famille'] ?? '') !== 'extra';
       $code = (string) $l['code'];
+      $fromBanqueFixed = isset(\Voletmat\PrevisionnelService::BUDGET_FROM_BANQUE_MAX[$code]);
+      $avecTva = !empty($l['avec_tva']) || \Voletmat\PrevisionnelService::avecTva($code);
   ?>
     <tr class="prev-row prev-<?= e($fam) ?>"
         data-code="<?= e($code) ?>"
-        data-reel="<?= e((string) round((float) $l['reel'], 2)) ?>">
+        data-reel="<?= e((string) round((float) $l['reel'], 2)) ?>"
+        data-avec-tva="<?= $avecTva ? '1' : '0' ?>">
       <td class="prev-code"><strong><?= e($code) ?></strong></td>
       <td>
         <?= e($l['libelle']) ?>
         <?php if ($code === 'URSSAF'): ?>
           <span class="muted prev-urssaf-hint">(= <?= (int) round(\Voletmat\TriLignesExcel::URSSAF_PCT_REM * 100) ?>&nbsp;% de REM)</span>
+        <?php endif; ?>
+        <?php
+          $fb = $l['from_banque'] ?? null;
+          if (is_array($fb) && isset($fb['max_mensuel'], $fb['nb_mois'])):
+        ?>
+          <span class="muted prev-banque-hint">
+            (<?= !empty($fb['fixe']) ? '' : 'max ' ?><?= number_format((float) $fb['max_mensuel'], 2, ',', ' ') ?>&nbsp;€
+            × <?= (int) $fb['nb_mois'] ?>&nbsp;mois)
+          </span>
         <?php endif; ?>
         <?php if ($code === 'REM'):
             $netMensuel = round((float) $l['budget_ht'] / $nbMois, 2);
@@ -101,32 +114,30 @@ $fmtPct = static function (float $n): string {
           </span>
         <?php endif; ?>
       </td>
-      <?php if ($editable): ?>
+      <?php if ($editable && !$fromBanqueFixed): ?>
       <td class="num">
         <input class="cell-input num prev-budget" data-field="ht"
                value="<?= e($fmtInput((float) $l['budget_ht'])) ?>"
                inputmode="decimal" aria-label="HT <?= e($code) ?>">
       </td>
       <td class="num">
-        <input class="cell-input num prev-budget" data-field="tva"
-               value="<?= e($fmtInput((float) $l['budget_tva'])) ?>"
-               inputmode="decimal" aria-label="TVA <?= e($code) ?>">
+        <span class="prev-tva-auto" data-field="tva"
+              title="<?= $avecTva ? 'TVA 20 % calculée automatiquement (non modifiable)' : 'Pas de TVA' ?>"><?= e($fmtInput((float) $l['budget_tva'])) ?></span>
       </td>
       <td class="num">
         <input class="cell-input num prev-budget prev-ttc" data-field="ttc"
                value="<?= e($fmtInput((float) $l['budget_ttc'])) ?>"
-               inputmode="decimal" aria-label="TTC <?= e($code) ?>">
+               inputmode="decimal" aria-label="TTC <?= e($code) ?>"
+               title="<?= $avecTva ? 'TTC = HT × 1,20 — modifiable (recalcule HT/TVA)' : 'TTC = HT' ?>">
       </td>
       <?php else: ?>
       <td class="num"><?= euro((float) $l['budget_ht']) ?></td>
-      <td class="num muted"><?= abs((float) $l['budget_tva']) < 0.005 ? '' : euro((float) $l['budget_tva']) ?></td>
-      <td class="num"><strong><?= euro((float) $l['budget_ttc']) ?></strong></td>
+      <td class="num"><?= abs((float) $l['budget_tva']) < 0.005 ? '' : euro((float) $l['budget_tva']) ?></td>
+      <td class="num"><?= euro((float) $l['budget_ttc']) ?></td>
       <?php endif; ?>
       <td class="prev-gap"></td>
       <td class="num"><?= euro((float) $l['reel']) ?></td>
-      <td class="num prev-ecart <?= $ecart < -0.005 ? 'restant-neg' : ($ecart > 0.005 ? 'restant-zero' : '') ?>">
-        <?= euro($ecart) ?>
-      </td>
+      <td class="num prev-ecart"><?= euro($ecart) ?></td>
     </tr>
   <?php endforeach; ?>
   </tbody>
@@ -138,7 +149,7 @@ $fmtPct = static function (float $n): string {
       <td class="num" data-tot="ttc"><?= euro((float) $totaux['budget_ttc']) ?></td>
       <td class="prev-gap"></td>
       <td class="num" data-tot="reel"><?= euro((float) $totaux['reel']) ?></td>
-      <td class="num" data-tot="ecart"><?= euro((float) $totaux['ecart']) ?></td>
+      <td class="num prev-ecart" data-tot="ecart"><?= euro((float) $totaux['ecart']) ?></td>
     </tr>
   </tfoot>
 </table>
@@ -185,7 +196,7 @@ $fmtPct = static function (float $n): string {
           <input class="cell-input num prev-marge-input" id="prev-marge-pct"
                  value="<?= e($fmtPct($margePct)) ?>"
                  inputmode="decimal" aria-label="Marge en pourcentage"
-                 title="Marge en % — OBJECTIF = total × (1 + marge %)">
+                 title="Marge en % — OBJECTIF DE L’EXERCICE = total dépenses × (1 + marge %)">
           <span class="prev-marge-unit">%</span>
         </span>
       </td>
@@ -194,7 +205,7 @@ $fmtPct = static function (float $n): string {
       <td></td>
     </tr>
     <tr class="prev-objectif">
-      <td><strong>OBJECTIF CA HT</strong></td>
+      <td><strong>OBJECTIF DE L’EXERCICE</strong></td>
       <td class="num" colspan="2" data-objectif><?= euro($objectif) ?></td>
       <td class="prev-gap"></td>
       <td></td>
@@ -223,15 +234,27 @@ $fmtPct = static function (float $n): string {
     var abs = Math.abs(n);
     var fixed = (Math.round(abs * 100) / 100).toFixed(2);
     var parts = fixed.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-    return (neg ? '−' : '') + parts[0] + ',' + parts[1];
+    // Espace figure = largeur d’un chiffre (aligne les virgules en colonne)
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u2007');
+    return (neg ? '−' : '') + parts[0] + ',' + parts[1] + '\u00a0€';
   }
   function euro(n) {
     if (n == null || !Number.isFinite(n)) return '—';
-    return formatAmountInput(n) + ' €';
+    if (Math.abs(n) < 0.005) return '0,00\u00a0€';
+    return formatAmountInput(n);
   }
   function setStatus(msg) {
     if (statusEl) statusEl.textContent = msg || '';
+  }
+
+  function amountText(el) {
+    if (!el) return '';
+    return el instanceof HTMLInputElement ? el.value : (el.textContent || '');
+  }
+  function setAmountText(el, formatted) {
+    if (!el) return;
+    if (el instanceof HTMLInputElement) el.value = formatted;
+    else el.textContent = formatted;
   }
 
   function readRow(tr) {
@@ -240,25 +263,39 @@ $fmtPct = static function (float $n): string {
     var ttcEl = tr.querySelector('[data-field="ttc"]');
     return {
       htEl: htEl, tvaEl: tvaEl, ttcEl: ttcEl,
-      ht: htEl ? parseFr(htEl.value) : 0,
-      tva: tvaEl ? parseFr(tvaEl.value) : 0,
-      ttc: ttcEl ? parseFr(ttcEl.value) : 0,
+      ht: htEl ? parseFr(amountText(htEl)) : 0,
+      tva: tvaEl ? parseFr(amountText(tvaEl)) : 0,
+      ttc: ttcEl ? parseFr(amountText(ttcEl)) : 0,
     };
   }
 
   function syncTtcFromParts(tr, field) {
     var r = readRow(tr);
+    var avecTva = tr.getAttribute('data-avec-tva') === '1';
+    var ht; var tva; var ttc;
     if (field === 'ttc') {
-      var tva = Math.round((r.ttc - r.ht) * 100) / 100;
-      if (r.tvaEl) r.tvaEl.value = formatAmountInput(tva);
-      if (r.ttcEl) r.ttcEl.value = formatAmountInput(r.ttc);
-      if (r.htEl) r.htEl.value = formatAmountInput(r.ht);
-      return;
+      ttc = r.ttc;
+      if (avecTva && Math.abs(ttc) >= 0.005) {
+        ht = Math.round((ttc / 1.2) * 100) / 100;
+        tva = Math.round((ttc - ht) * 100) / 100;
+      } else {
+        ht = ttc;
+        tva = 0;
+      }
+    } else {
+      // HT (ou autre) → TVA 20 % + TTC
+      ht = r.ht;
+      if (avecTva && Math.abs(ht) >= 0.005) {
+        tva = Math.round((ht * 0.2) * 100) / 100;
+        ttc = Math.round((ht + tva) * 100) / 100;
+      } else {
+        tva = 0;
+        ttc = ht;
+      }
     }
-    var ttc = Math.round((r.ht + r.tva) * 100) / 100;
-    if (r.htEl) r.htEl.value = formatAmountInput(r.ht);
-    if (r.tvaEl) r.tvaEl.value = formatAmountInput(r.tva);
-    if (r.ttcEl) r.ttcEl.value = formatAmountInput(ttc);
+    setAmountText(r.htEl, formatAmountInput(ht));
+    setAmountText(r.tvaEl, formatAmountInput(tva));
+    setAmountText(r.ttcEl, formatAmountInput(ttc));
   }
 
   function updateEcart(tr, ttc) {
@@ -267,8 +304,6 @@ $fmtPct = static function (float $n): string {
     var cell = tr.querySelector('.prev-ecart');
     if (!cell) return;
     cell.textContent = euro(ecart);
-    cell.classList.toggle('restant-neg', ecart < -0.005);
-    cell.classList.toggle('restant-zero', ecart > 0.005);
   }
 
   function applyTotaux(totaux) {
@@ -345,20 +380,19 @@ $fmtPct = static function (float $n): string {
       .catch(function () { setStatus('Erreur réseau'); });
   }
 
-  function saveRow(tr) {
+  function saveRow(tr, field) {
     var code = tr.getAttribute('data-code');
     if (!code) return;
+    syncTtcFromParts(tr, field || 'ht');
     var r = readRow(tr);
     var ttc = r.ttc;
-    if (Math.abs(ttc) < 0.005 && (Math.abs(r.ht) > 0.005 || Math.abs(r.tva) > 0.005)) {
-      ttc = Math.round((r.ht + r.tva) * 100) / 100;
-    }
     updateEcart(tr, ttc);
     var fd = new FormData();
     fd.append('csrf', csrf);
     fd.append('ajax', '1');
     fd.append('action', 'maj_budget');
     fd.append('categorie_code', code);
+    fd.append('field', field === 'ttc' ? 'ttc' : 'ht');
     fd.append('montant_ht', String(r.ht).replace('.', ','));
     fd.append('montant_tva', String(r.tva).replace('.', ','));
     fd.append('montant_ttc', String(ttc).replace('.', ','));
@@ -377,15 +411,15 @@ $fmtPct = static function (float $n): string {
         }
         if (data.ligne) {
           var l = data.ligne;
-          if (r.htEl) r.htEl.value = formatAmountInput(l.budget_ht);
-          if (r.tvaEl) r.tvaEl.value = formatAmountInput(l.budget_tva);
-          if (r.ttcEl) r.ttcEl.value = formatAmountInput(l.budget_ttc);
+          setAmountText(r.htEl, formatAmountInput(l.budget_ht));
+          setAmountText(r.tvaEl, formatAmountInput(l.budget_tva));
+          setAmountText(r.ttcEl, formatAmountInput(l.budget_ttc));
           updateEcart(tr, l.budget_ttc);
           if (code === 'REM') {
             var netEl = tr.querySelector('[data-net-mensuel]');
             if (netEl) {
               var net = Math.round((l.budget_ht / nbMois) * 100) / 100;
-              netEl.textContent = '(' + formatAmountInput(net) + ' € / mois)';
+              netEl.textContent = '(' + formatAmountInput(net) + ' / mois)';
             }
           }
         }
@@ -393,12 +427,9 @@ $fmtPct = static function (float $n): string {
           var u = data.ligne_urssaf;
           var trU = grid.querySelector('tr[data-code="URSSAF"]');
           if (trU) {
-            var uh = trU.querySelector('[data-field="ht"]');
-            var ut = trU.querySelector('[data-field="tva"]');
-            var uc = trU.querySelector('[data-field="ttc"]');
-            if (uh) uh.value = formatAmountInput(u.budget_ht);
-            if (ut) ut.value = formatAmountInput(u.budget_tva);
-            if (uc) uc.value = formatAmountInput(u.budget_ttc);
+            setAmountText(trU.querySelector('[data-field="ht"]'), formatAmountInput(u.budget_ht));
+            setAmountText(trU.querySelector('[data-field="tva"]'), formatAmountInput(u.budget_tva));
+            setAmountText(trU.querySelector('[data-field="ttc"]'), formatAmountInput(u.budget_ttc));
             trU.setAttribute('data-reel', String(u.reel != null ? u.reel : 0));
             updateEcart(trU, u.budget_ttc);
           }
@@ -411,14 +442,20 @@ $fmtPct = static function (float $n): string {
       .catch(function () { setStatus('Erreur réseau'); });
   }
 
+  grid.addEventListener('input', function (ev) {
+    var t = ev.target;
+    if (!(t instanceof HTMLInputElement) || !t.matches('.prev-budget')) return;
+    var tr = t.closest('tr[data-code]');
+    if (!tr) return;
+    syncTtcFromParts(tr, t.getAttribute('data-field') || 'ht');
+  });
+
   grid.addEventListener('blur', function (ev) {
     var t = ev.target;
     if (!(t instanceof HTMLInputElement) || !t.matches('.prev-budget')) return;
     var tr = t.closest('tr[data-code]');
     if (!tr) return;
-    var field = t.getAttribute('data-field') || 'ht';
-    syncTtcFromParts(tr, field);
-    saveRow(tr);
+    saveRow(tr, t.getAttribute('data-field') || 'ht');
   }, true);
 
   grid.addEventListener('keydown', function (ev) {
