@@ -80,6 +80,11 @@ final class Database
         // Objectifs CA HT issus du Prévisionnel Excel (feuille OBJECTIF CA HT)
         $pdo->exec("UPDATE exercices SET objectif_ca_ht = 91760 WHERE code = 'N4' AND objectif_ca_ht IS NULL");
         $pdo->exec("UPDATE exercices SET objectif_ca_ht = 109561.65 WHERE code = 'N5' AND objectif_ca_ht IS NULL");
+        // N6+ : années civiles dès le 1er janvier 2027 (fin de l’exercice long N5)
+        $pdo->exec(
+            "INSERT OR IGNORE INTO exercices (code, libelle, date_debut, date_fin, actif, objectif_ca_ht, previ_mois)
+             VALUES ('N6', 'Exercice N6 (année civile 2027)', '2027-01-01', '2027-12-31', 0, NULL, 12)"
+        );
 
         $echCols = array_column($pdo->query('PRAGMA table_info(echeances_facturation)')->fetchAll(), 'name');
         if (!in_array('ecart_ok', $echCols, true)) {
@@ -109,6 +114,19 @@ final class Database
         if (!in_array('controle_json', $impCols, true)) {
             $pdo->exec('ALTER TABLE imports ADD COLUMN controle_json TEXT');
         }
+
+        $exCols = array_column($pdo->query('PRAGMA table_info(exercices)')->fetchAll(), 'name');
+        if (!in_array('solde_ouverture', $exCols, true)) {
+            $pdo->exec('ALTER TABLE exercices ADD COLUMN solde_ouverture REAL');
+        }
+        if (!in_array('solde_ouverture_date', $exCols, true)) {
+            $pdo->exec('ALTER TABLE exercices ADD COLUMN solde_ouverture_date TEXT');
+        }
+        // Solde créditeur au 30/06/2025 = ouverture N5 (fin N4)
+        $pdo->exec(
+            "UPDATE exercices SET solde_ouverture = 25235.76, solde_ouverture_date = '2025-06-30'
+             WHERE code = 'N5' AND (solde_ouverture IS NULL OR solde_ouverture_date IS NULL)"
+        );
     }
 
     /**

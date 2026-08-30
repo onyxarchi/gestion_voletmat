@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS exercices (
     objectif_ca_ht REAL,
     marge_pct REAL NOT NULL DEFAULT 0,
     previ_mois INTEGER NOT NULL DEFAULT 12,
+    solde_ouverture REAL,
+    solde_ouverture_date TEXT,
     CHECK (date_debut <= date_fin)
 );
 

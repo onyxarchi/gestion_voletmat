@@ -40,16 +40,31 @@ final class BanqueTriSuggester
         ['/\bSMABTP\b/iu', 'SMABTP'],
         ['/\bCOMPAGNIE\s+FIDUCIAIRE\b|\bVISEEON\b/iu', 'COMPTA'],
         ['/\bGGVIE\b|\bPERIN\b/iu', 'PER'],
+        ['/\bFACT\s+SGT/iu', 'BANQUE'],
         ['/\bREMUNERATION\b/iu', 'REM'],
         ['/\bAPPLE\s+COM\b/iu', 'INFORMATIQUE'],
         ['/\bAMAZON\b/iu', 'FOURN'],
     ];
 
+    /** TRI autorisés (feuille N5 + VENTE/AVOIR banque). Jamais les codes N4 orphelins. */
+    private const CODES_OK = [
+        'VENTE', 'AVOIR',
+        'REM', 'DIVIDENDES', 'CCA', 'IK', 'CESU', 'FORMATION',
+        'URSSAF', 'PREV', 'PER', 'PJ', 'SMABTP', 'OA', 'ASS BUREAU',
+        'CFE', 'IS', 'COMPTA', 'JURIDIQUE', 'TVA', 'RECOUV',
+        'ASSOS', 'FOURN', 'INFORMATIQUE', 'LOGICIEL', 'ARCHICAD', 'SITE',
+        'RESTO', 'POSTE', 'TEL', 'NET', 'DEPLACEMENT', 'BANQUE', 'EPARGNE',
+        'ADMIN', 'SST', 'BUREAU', 'DIVERS',
+    ];
+
     /** @var array<string, array{code:string, n:int}>|null */
     private ?array $exact = null;
 
-    public function __construct(private PDO $pdo)
+    private ?int $exerciceId = null;
+
+    public function __construct(private PDO $pdo, ?int $exerciceId = null)
     {
+        $this->exerciceId = $exerciceId;
     }
 
     /**
@@ -64,7 +79,7 @@ final class BanqueTriSuggester
 
         foreach (self::RULES as [$re, $code]) {
             if (preg_match($re, $lib)) {
-                return $code;
+                return self::codeAutorise($code) ? $code : null;
             }
         }
 
@@ -83,7 +98,8 @@ final class BanqueTriSuggester
         }
 
         if (isset($this->exact[$sig])) {
-            return $this->exact[$sig]['code'];
+            $code = $this->exact[$sig]['code'];
+            return self::codeAutorise($code) ? $code : null;
         }
 
         $tokens = array_values(array_unique(preg_split('/\s+/u', $sig, -1, PREG_SPLIT_NO_EMPTY) ?: []));
@@ -92,7 +108,7 @@ final class BanqueTriSuggester
         $sigLen = mb_strlen($sig, 'UTF-8');
 
         foreach ($this->exact as $histSig => $info) {
-            if ($info['n'] < 1) {
+            if ($info['n'] < 1 || !self::codeAutorise($info['code'])) {
                 continue;
             }
             $score = 0;
@@ -120,7 +136,14 @@ final class BanqueTriSuggester
             }
         }
 
-        return $bestScore >= 50 ? $bestCode : null;
+        return $bestScore >= 50 && $bestCode !== null && self::codeAutorise($bestCode)
+            ? $bestCode
+            : null;
+    }
+
+    public static function codeAutorise(string $code): bool
+    {
+        return in_array(strtoupper(trim($code)), self::CODES_OK, true);
     }
 
     /**
@@ -129,12 +152,16 @@ final class BanqueTriSuggester
      */
     public function appliquerSurVides(?int $exerciceId = null): int
     {
+        if ($exerciceId !== null) {
+            $this->exerciceId = $exerciceId;
+            $this->exact = null;
+        }
         $sql = 'SELECT id, libelle, debit, credit FROM operations_bancaires
                 WHERE categorie_code IS NULL';
         $params = [];
-        if ($exerciceId !== null) {
+        if ($this->exerciceId !== null) {
             $sql .= ' AND exercice_id = ?';
-            $params[] = $exerciceId;
+            $params[] = $this->exerciceId;
         }
         $st = $this->pdo->prepare($sql);
         $st->execute($params);
@@ -237,19 +264,29 @@ final class BanqueTriSuggester
         if ($this->exact !== null) {
             return;
         }
-        $rows = $this->pdo->query(
-            'SELECT libelle, categorie_code FROM operations_bancaires
-             WHERE categorie_code IS NOT NULL AND TRIM(categorie_code) != \'\''
-        )->fetchAll();
+        $sql = 'SELECT libelle, categorie_code FROM operations_bancaires
+                WHERE categorie_code IS NOT NULL AND TRIM(categorie_code) != \'\'
+                  AND source != \'excel_n4\'';
+        $params = [];
+        if ($this->exerciceId !== null) {
+            $sql .= ' AND exercice_id = ?';
+            $params[] = $this->exerciceId;
+        }
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+        $rows = $st->fetchAll();
 
         /** @var array<string, array<string, int>> $votes */
         $votes = [];
         foreach ($rows as $r) {
+            $code = (string) $r['categorie_code'];
+            if (!self::codeAutorise($code)) {
+                continue;
+            }
             $sig = self::signature((string) $r['libelle']);
             if ($sig === '') {
                 continue;
             }
-            $code = (string) $r['categorie_code'];
             $votes[$sig][$code] = ($votes[$sig][$code] ?? 0) + 1;
         }
 

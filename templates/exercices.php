@@ -7,7 +7,8 @@ ob_start();
 <p class="lead">
   N4 = juil. 2024 → juin 2025 (12 mois) ·
   <strong>N5 = juil. 2025 → déc. 2026 (18 mois)</strong> ·
-  à partir du <strong>1er janvier 2027</strong> : un exercice = une année civile.
+  <strong>à partir du 1<sup>er</sup>&nbsp;janvier&nbsp;2027</strong> :
+  tout repasse en <strong>année civile</strong> (N6 = 01/01/2027 → 31/12/2027, puis chaque année).
   L’exercice affiché partout est choisi automatiquement selon la date du jour.
 </p>
 

@@ -36,13 +36,6 @@ $fmtPct = static function (float $n): string {
 ?>
 <div class="planning-top">
   <h1>Prévisionnel</h1>
-  <?php if ($exercice): ?>
-    <p class="muted prev-duree">
-      Exercice sur <strong><?= (int) $nbMois ?> mois</strong>
-      — les lignes <em>mensuelles</em> (REM, URSSAF, PREV, PER, PJ, SMABTP, COMPTA, LOGICIEL, TEL, NET, BANQUE, BUREAU)
-      sont budgétées sur toute la période ; les autres restent un total unique.
-    </p>
-  <?php endif; ?>
 </div>
 <?php if (!$exercice): ?>
   <p class="lead">Aucun exercice pour la date du jour.</p>
@@ -90,17 +83,15 @@ $fmtPct = static function (float $n): string {
       $ecart = (float) $l['ecart'];
       $editable = ($l['famille'] ?? '') !== 'extra';
       $code = (string) $l['code'];
-      $mensuel = !empty($l['mensuel']);
   ?>
     <tr class="prev-row prev-<?= e($fam) ?>"
         data-code="<?= e($code) ?>"
-        data-mensuel="<?= $mensuel ? '1' : '0' ?>"
         data-reel="<?= e((string) round((float) $l['reel'], 2)) ?>">
       <td class="prev-code"><strong><?= e($code) ?></strong></td>
       <td>
         <?= e($l['libelle']) ?>
-        <?php if ($mensuel): ?>
-          <span class="prev-badge-mensuel" title="Charge mensuelle × <?= (int) $nbMois ?> mois">mensuel</span>
+        <?php if ($code === 'URSSAF'): ?>
+          <span class="muted prev-urssaf-hint">(= <?= (int) round(\Voletmat\TriLignesExcel::URSSAF_PCT_REM * 100) ?>&nbsp;% de REM)</span>
         <?php endif; ?>
         <?php if ($code === 'REM'):
             $netMensuel = round((float) $l['budget_ht'] / $nbMois, 2);
@@ -398,10 +389,24 @@ $fmtPct = static function (float $n): string {
             }
           }
         }
+        if (data.ligne_urssaf) {
+          var u = data.ligne_urssaf;
+          var trU = grid.querySelector('tr[data-code="URSSAF"]');
+          if (trU) {
+            var uh = trU.querySelector('[data-field="ht"]');
+            var ut = trU.querySelector('[data-field="tva"]');
+            var uc = trU.querySelector('[data-field="ttc"]');
+            if (uh) uh.value = formatAmountInput(u.budget_ht);
+            if (ut) ut.value = formatAmountInput(u.budget_tva);
+            if (uc) uc.value = formatAmountInput(u.budget_ttc);
+            trU.setAttribute('data-reel', String(u.reel != null ? u.reel : 0));
+            updateEcart(trU, u.budget_ttc);
+          }
+        }
         applyTotaux(data.totaux);
         applySynthese(data.synthese, data.objectif_ca_ht, data.marge_net);
-        setStatus('Enregistré');
-        setTimeout(function () { setStatus(''); }, 1200);
+        setStatus(code === 'REM' ? 'Enregistré (URSSAF = 42 % REM)' : 'Enregistré');
+        setTimeout(function () { setStatus(''); }, 1400);
       })
       .catch(function () { setStatus('Erreur réseau'); });
   }

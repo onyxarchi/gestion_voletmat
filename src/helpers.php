@@ -26,7 +26,7 @@ function app_config(?string $key = null): mixed
     return $v;
 }
 
-function e(?string $s): string
+function e(string|int|float|null $s): string
 {
     return htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }

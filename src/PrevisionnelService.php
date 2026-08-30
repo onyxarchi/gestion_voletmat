@@ -68,7 +68,6 @@ final class PrevisionnelService
         }
 
         $lignes = [];
-        $seen = [];
         foreach (TriLignesExcel::LIGNES as $code => $meta) {
             $b = $byCode[$code] ?? null;
             $budgetHt = $b ? round((float) $b['montant_ht'], 2) : 0.0;
@@ -95,35 +94,13 @@ final class PrevisionnelService
                 'ecart' => $ecart,
                 'pct' => $pct,
             ];
-            $seen[$code] = true;
-            unset($reelByCat[$code]);
         }
 
-        // TRI banque hors feuille Excel → en fin, neutre
-        foreach ($reelByCat as $code => $reel) {
-            if (abs($reel) < 0.005 || isset($seen[$code])) {
-                continue;
-            }
-            $lignes[] = [
-                'code' => $code,
-                'libelle' => $this->libelleCategorie($code),
-                'famille' => 'extra',
-                'mensuel' => false,
-                'budget_ht' => 0.0,
-                'budget_tva' => 0.0,
-                'budget_ttc' => 0.0,
-                'reel' => round($reel, 2),
-                'ecart' => round(0.0 - $reel, 2),
-                'pct' => null,
-            ];
-        }
+        // TRI hors feuille N5 (ex. codes N4 ASS/CLE/FBQ) : ignorés ici.
 
         $totHt = $totTva = $totTtc = $totReel = 0.0;
         $byCodeLigne = [];
         foreach ($lignes as $l) {
-            if ($l['famille'] === 'extra') {
-                continue;
-            }
             $totHt += $l['budget_ht'];
             $totTva += $l['budget_tva'];
             $totTtc += $l['budget_ttc'];

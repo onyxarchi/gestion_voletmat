@@ -261,36 +261,88 @@ tr.row-new .btn { padding: 0.35rem 0.65rem; font-size: 0.82rem; white-space: now
 .cell-tri-banque.tri-saving { opacity: 0.55; }
 .cell-tri-banque.tri-ok { border-color: #8bbf9f; }
 
-table.banque-grid .banque-libelle {
-  width: 100%;
-  min-width: 12rem;
-  max-width: 28rem;
-  text-align: left;
-  font: inherit;
+/* Banque : typo compacte (comme colonne Mois), colonnes serrées */
+table.banque-grid {
+  font-size: 0.8rem;
+  table-layout: auto;
 }
-table.banque-grid .banque-amt {
-  width: 6.2rem;
-  max-width: 100%;
+table.banque-grid th,
+table.banque-grid td {
+  padding: 0.2rem 0.28rem;
+  vertical-align: middle;
+  font-size: 0.8rem;
 }
-table.banque-grid .banque-col-sens {
-  width: 2.2rem;
+table.banque-grid th {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.28rem;
+}
+table.banque-grid .banque-col-date,
+table.banque-grid .banque-col-valeur {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+table.banque-grid .banque-col-mois {
+  width: 1%;
+  max-width: 3.2rem;
+  white-space: nowrap;
   text-align: center;
   padding-left: 0.15rem;
   padding-right: 0.15rem;
+  font-variant-numeric: tabular-nums;
 }
-.banque-sens-btn {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--vm-blue-dark);
-  border-radius: 4px;
-  padding: 0.15rem 0.35rem;
-  cursor: pointer;
-  font-size: 0.95rem;
-  line-height: 1;
+table.banque-grid .banque-col-tri {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
 }
-.banque-sens-btn:hover {
+table.banque-grid .banque-col-amt {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+table.banque-grid .banque-col-libelle {
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+table.banque-grid .banque-libelle {
+  width: 100%;
+  min-width: 8rem;
+  max-width: none;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.18rem 0.3rem;
+}
+table.banque-grid .banque-amt {
+  width: 5.4rem;
+  max-width: 5.4rem;
+  font-size: 0.8rem;
+  padding: 0.18rem 0.28rem;
+}
+table.banque-grid .cell-tri-banque {
+  font-size: 0.75rem;
+  max-width: 7.5rem;
+  padding: 0.12rem 0.15rem;
+}
+table.banque-grid tr.banque-total-mvt > td {
+  font-weight: 600;
+  border-top: 2px solid var(--line);
+  background: #f3f6f9;
+  padding-top: 0.4rem;
+  padding-bottom: 0.35rem;
+}
+table.banque-grid tr.banque-solde-crediteur > td {
+  font-weight: 700;
+  border-top: 1px solid var(--line);
+  border-bottom: 2px solid var(--vm-blue);
   background: var(--vm-blue-soft);
-  border-color: var(--vm-blue);
+  padding-top: 0.4rem;
+  padding-bottom: 0.45rem;
 }
 table.banque-grid tr.banque-row-saving {
   opacity: 0.65;
@@ -1197,16 +1249,18 @@ table.previsionnel-synth {
   table-layout: fixed;
   border-collapse: collapse;
 }
-/* Même largeur à gauche du trait bleu (TRI+libellé+3 montants = label+2 montants) */
-table.previsionnel-grid .prev-col-tri { width: 11%; }
-table.previsionnel-grid .prev-col-lib { width: 25%; }
-table.previsionnel-grid .prev-col-amt { width: 12%; }
-table.previsionnel-synth .prev-col-synth-label { width: 36%; } /* 11+25 */
-table.previsionnel-synth .prev-col-amt { width: 18%; } /* (12×3)/2 */
-table.previsionnel-synth .prev-col-synth-reel { width: 24%; } /* 12+12 */
+/* Même largeur à gauche du trait bleu (TRI+libellé+3 montants = label+2 montants).
+   Le gap est en px fixes : avec table-layout:fixed + % incomplets, un rem
+   était ignoré et le bandeau absorbait tout l’espace restant (~largeur d’une colonne). */
+table.previsionnel-grid .prev-col-tri { width: 10%; }
+table.previsionnel-grid .prev-col-lib { width: 26%; }
+table.previsionnel-grid .prev-col-amt { width: 12.6%; } /* ×5 = 63 % → total 99 % */
+table.previsionnel-synth .prev-col-synth-label { width: 36%; }
+table.previsionnel-synth .prev-col-amt { width: 19%; } /* ×2 */
+table.previsionnel-synth .prev-col-synth-reel { width: 25%; }
 table.previsionnel-grid .prev-col-gap,
 table.previsionnel-synth .prev-col-gap {
-  width: 0.16rem;
+  width: 3px;
 }
 table.previsionnel-grid th,
 table.previsionnel-grid td,
@@ -1216,12 +1270,14 @@ table.previsionnel-synth td {
   border-bottom: 1px solid #e8eef2;
 }
 .prev-gap {
-  width: 0.16rem;
-  min-width: 0.16rem;
-  max-width: 0.16rem;
+  width: 3px !important;
+  min-width: 3px !important;
+  max-width: 3px !important;
+  box-sizing: border-box;
   padding: 0 !important;
   background: #b8d7ed !important;
   border: none !important;
+  overflow: hidden;
 }
 .prev-code {
   white-space: nowrap;

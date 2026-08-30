@@ -28,7 +28,11 @@ $bodyClass = match ($page ?? '') {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= e($title) ?> — <?= e((string) app_config('app_name')) ?></title>
   <link rel="icon" href="assets/img/logo-voletmat.png" type="image/png">
-  <link rel="stylesheet" href="assets/css/app.css">
+  <?php
+    $cssPath = dirname(__DIR__) . '/public/assets/css/app.css';
+    $cssVer = is_file($cssPath) ? (string) filemtime($cssPath) : '1';
+  ?>
+  <link rel="stylesheet" href="assets/css/app.css?v=<?= e($cssVer) ?>">
 </head>
 <body class="<?= e($bodyClass) ?>">
 <?php if ($user): ?>

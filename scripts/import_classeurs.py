@@ -304,10 +304,8 @@ def import_banque_n5(con: sqlite3.Connection, ws, eid: int) -> int:
         if tri_s:
             exists = con.execute("SELECT 1 FROM categories WHERE code=?", (tri_s,)).fetchone()
             if not exists:
-                con.execute(
-                    "INSERT OR IGNORE INTO categories (code, libelle, ordre) VALUES (?,?,?)",
-                    (tri_s, tri_s, 99),
-                )
+                # Ne pas créer de TRI hors modèle (ex. ASS/CLE/FBQ du N4)
+                tri_s = None
         mois = date_op[:4] + date_op[5:7]
         emp = empreinte(date_op, libelle, debit, credit)
         try:
@@ -349,10 +347,8 @@ def import_banque_n4(con: sqlite3.Connection, ws, eid: int) -> int:
         tri = ws.cell(r, 6).value
         tri_s = str(tri).strip() if tri not in (None, "") else None
         if tri_s and not con.execute("SELECT 1 FROM categories WHERE code=?", (tri_s,)).fetchone():
-            con.execute(
-                "INSERT OR IGNORE INTO categories (code, libelle, ordre) VALUES (?,?,?)",
-                (tri_s, tri_s, 99),
-            )
+            # Codes N4 hors modèle actuel : laisser sans TRI plutôt que créer un orphelin
+            tri_s = None
         mois = date_op[:4] + date_op[5:7]
         emp = empreinte(date_op, libelle, debit, credit)
         try:

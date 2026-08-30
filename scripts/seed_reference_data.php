@@ -55,6 +55,8 @@ function seed_reference_data(PDO $pdo): void
     $exercices = [
         ['N4', 'Exercice N4 (juil. 2024 – juin 2025)', '2024-07-01', '2025-06-30', 0, 91760.0],
         ['N5', 'Exercice N5 (juil. 2025 – déc. 2026, 18 mois)', '2025-07-01', '2026-12-31', 1, 109561.65],
+        // À partir du 1er janvier 2027 : années civiles uniquement (plus d’exercice long)
+        ['N6', 'Exercice N6 (année civile 2027)', '2027-01-01', '2027-12-31', 0, null],
     ];
     $ins = $pdo->prepare(
         'INSERT OR IGNORE INTO exercices (code, libelle, date_debut, date_fin, actif, objectif_ca_ht) VALUES (?,?,?,?,?,?)'
@@ -64,4 +66,10 @@ function seed_reference_data(PDO $pdo): void
     }
     $pdo->exec("UPDATE exercices SET objectif_ca_ht = 91760 WHERE code = 'N4' AND objectif_ca_ht IS NULL");
     $pdo->exec("UPDATE exercices SET objectif_ca_ht = 109561.65 WHERE code = 'N5' AND objectif_ca_ht IS NULL");
+    $pdo->exec("UPDATE exercices SET previ_mois = 12 WHERE code = 'N6' AND (previ_mois IS NULL OR previ_mois <> 12)");
+    // Solde créditeur banque au 30/06/2025 → point de départ N5
+    $pdo->exec(
+        "UPDATE exercices SET solde_ouverture = 25235.76, solde_ouverture_date = '2025-06-30'
+         WHERE code = 'N5'"
+    );
 }

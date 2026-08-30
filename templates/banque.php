@@ -4,6 +4,7 @@ declare(strict_types=1);
 /** @var array|null $exercice */
 /** @var array $banqueStats */
 /** @var list<array{code:string,libelle:string}> $categories */
+/** @var array<string, array{date:string, solde:?float}> $releveSoldes */
 ob_start();
 
 $operations = $operations ?? [];
@@ -14,17 +15,64 @@ $banqueStats = $banqueStats ?? [
     'ventes' => 0.0,
 ];
 $categories = $categories ?? [];
+$releveSoldes = $releveSoldes ?? [];
 $csrf = csrf_token();
 $saveUrl = page_url('banque');
-$moisList = [];
+
+/** @var array<string, list<array>> $opsParMois */
+$opsParMois = [];
 foreach ($operations as $o) {
     $am = (string) ($o['annee_mois'] ?? '');
-    if ($am !== '') {
-        $moisList[$am] = true;
+    if ($am === '' && !empty($o['date_operation'])) {
+        $am = annee_mois_from_date((string) $o['date_operation']);
     }
+    if ($am === '') {
+        $am = '000000';
+    }
+    $opsParMois[$am][] = $o;
 }
-$moisList = array_keys($moisList);
-rsort($moisList);
+// Mois récents en premier ; dans chaque mois : du plus récent au plus ancien
+$moisList = array_keys($opsParMois);
+rsort($moisList, SORT_STRING);
+foreach ($opsParMois as &$opsMoisSort) {
+    usort($opsMoisSort, static function (array $a, array $b): int {
+        $da = (string) ($a['date_operation'] ?? '');
+        $db = (string) ($b['date_operation'] ?? '');
+        if ($da !== $db) {
+            return $db <=> $da;
+        }
+        return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+    });
+}
+unset($opsMoisSort);
+
+$fmtAmt = static function (?float $n): string {
+    if ($n === null || abs($n) < 0.005) {
+        return '';
+    }
+    return number_format(abs($n), 2, ',', ' ');
+};
+
+$dateFinMois = static function (string|int $ym, array $ops): string {
+    $ym = (string) $ym;
+    $last = '';
+    foreach ($ops as $o) {
+        $d = (string) ($o['date_operation'] ?? '');
+        if ($d > $last) {
+            $last = $d;
+        }
+    }
+    if ($last !== '') {
+        return $last;
+    }
+    if (preg_match('/^(\d{4})(\d{2})$/', $ym, $m)) {
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $day = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
+        return sprintf('%04d-%02d-%02d', $y, $mo, $day);
+    }
+    return '';
+};
 ?>
 <h1>Banque</h1>
 
@@ -55,7 +103,10 @@ rsort($moisList);
     <select id="banque-mois-filter" aria-label="Filtrer par mois (relevé)">
       <option value="">Tous</option>
       <?php foreach ($moisList as $am): ?>
-        <option value="<?= e($am) ?>"><?= e($am) ?></option>
+        <?php if ((string) $am === '000000') {
+            continue;
+        } ?>
+        <option value="<?= e((string) $am) ?>"><?= e((string) $am) ?></option>
       <?php endforeach; ?>
     </select>
   </label>
@@ -88,60 +139,69 @@ rsort($moisList);
 <?php else: ?>
 <table class="data banque-grid" id="banque-grid"
        data-save-url="<?= e($saveUrl) ?>"
-       data-csrf="<?= e($csrf) ?>">
+       data-csrf="<?= e($csrf) ?>"
+       data-releve-soldes="<?= e(json_encode($releveSoldes, JSON_UNESCAPED_UNICODE) ?: '{}') ?>">
   <thead>
     <tr>
-      <th>Date</th>
-      <th>Valeur</th>
-      <th>Libellé</th>
-      <th class="num">Débit</th>
-      <th class="num">Crédit</th>
-      <th class="banque-col-sens" title="Basculer débit ↔ crédit"></th>
-      <th>TRI</th>
-      <th>Mois</th>
+      <th class="banque-col-date">Date</th>
+      <th class="banque-col-valeur">Valeur</th>
+      <th class="banque-col-libelle">Libellé</th>
+      <th class="num banque-col-amt">Débit</th>
+      <th class="num banque-col-amt">Crédit</th>
+      <th class="banque-col-tri">TRI</th>
+      <th class="banque-col-mois">Mois</th>
     </tr>
   </thead>
   <tbody>
-  <?php
-  $fmtAmt = static function (?float $n): string {
-      if ($n === null || abs($n) < 0.005) {
-          return '';
+  <?php foreach ($moisList as $moisKeyRaw):
+      // PHP caste les clés "202607" en int → toujours forcer string
+      $moisKey = (string) $moisKeyRaw;
+      $opsMois = $opsParMois[$moisKeyRaw] ?? $opsParMois[$moisKey] ?? [];
+      $sumD = 0.0;
+      $sumC = 0.0;
+      foreach ($opsMois as $o) {
+          if ($o['debit'] !== null) {
+              $sumD += abs((float) $o['debit']);
+          }
+          if ($o['credit'] !== null) {
+              $sumC += (float) $o['credit'];
+          }
       }
-      return number_format(abs($n), 2, ',', ' ');
-  };
-  foreach ($operations as $o):
-      $tri = (string) ($o['categorie_code'] ?? '');
-      $mois = (string) ($o['annee_mois'] ?? '');
-      $debitVal = $o['debit'] !== null ? (float) $o['debit'] : null;
-      $creditVal = $o['credit'] !== null ? (float) $o['credit'] : null;
+      $meta = $releveSoldes[$moisKey] ?? $releveSoldes[$moisKeyRaw] ?? null;
+      $dateSolde = is_array($meta) && !empty($meta['date'])
+          ? (string) $meta['date']
+          : $dateFinMois($moisKey, $opsMois);
+      $soldeVal = is_array($meta) && array_key_exists('solde', $meta) ? $meta['solde'] : null;
   ?>
+    <?php foreach ($opsMois as $o):
+        $tri = (string) ($o['categorie_code'] ?? '');
+        $mois = (string) ($o['annee_mois'] ?? $moisKey);
+        $debitVal = $o['debit'] !== null ? (float) $o['debit'] : null;
+        $creditVal = $o['credit'] !== null ? (float) $o['credit'] : null;
+    ?>
     <tr data-operation-id="<?= (int) $o['id'] ?>" data-tri="<?= e($tri) ?>"
         data-mois="<?= e($mois) ?>"
         data-debit="<?= $debitVal !== null ? e((string) $debitVal) : '0' ?>"
         data-credit="<?= $creditVal !== null ? e((string) $creditVal) : '0' ?>"
         class="<?= $tri === '' ? 'row-tri-vide' : '' ?>">
-      <td><?= date_fr($o['date_operation']) ?></td>
-      <td><?= date_fr($o['date_valeur'] ?? null) ?></td>
-      <td>
+      <td class="banque-col-date"><?= date_fr($o['date_operation']) ?></td>
+      <td class="banque-col-valeur"><?= date_fr($o['date_valeur'] ?? null) ?></td>
+      <td class="banque-col-libelle">
         <input class="cell-input banque-libelle" data-field="libelle"
                value="<?= e((string) $o['libelle']) ?>"
                aria-label="Libellé">
       </td>
-      <td class="num">
+      <td class="num banque-col-amt">
         <input class="cell-input num banque-amt" data-field="debit"
                value="<?= e($fmtAmt($debitVal)) ?>"
                inputmode="decimal" aria-label="Débit">
       </td>
-      <td class="num">
+      <td class="num banque-col-amt">
         <input class="cell-input num banque-amt" data-field="credit"
                value="<?= e($fmtAmt($creditVal)) ?>"
                inputmode="decimal" aria-label="Crédit">
       </td>
-      <td class="banque-col-sens">
-        <button type="button" class="banque-sens-btn" data-action="toggle-sens"
-                title="Basculer débit ↔ crédit" aria-label="Basculer débit crédit">⇄</button>
-      </td>
-      <td>
+      <td class="banque-col-tri">
         <select class="cell-tri-banque" data-field="categorie_code" aria-label="TRI">
           <option value="">—</option>
           <?php foreach ($categories as $c): ?>
@@ -151,24 +211,30 @@ rsort($moisList);
           <?php endforeach; ?>
         </select>
       </td>
-      <td class="muted"><?= e($mois) ?></td>
+      <td class="muted banque-col-mois"><?= e($mois) ?></td>
+    </tr>
+    <?php endforeach; ?>
+
+    <tr class="banque-total-mvt" data-mois="<?= e($moisKey) ?>" data-summary="1">
+      <td colspan="3"><strong>Total des mouvements</strong></td>
+      <td class="num banque-col-amt" data-mvt-debit><?= euro($sumD) ?></td>
+      <td class="num banque-col-amt" data-mvt-credit><?= euro($sumC) ?></td>
+      <td colspan="2"></td>
+    </tr>
+    <tr class="banque-solde-crediteur" data-mois="<?= e($moisKey) ?>" data-summary="1"
+        data-solde="<?= $soldeVal !== null ? e((string) $soldeVal) : '' ?>"
+        data-date-solde="<?= e($dateSolde) ?>">
+      <td colspan="3">
+        <strong>SOLDE CRÉDITEUR<?= $dateSolde !== '' ? ' AU ' . date_fr($dateSolde) : '' ?></strong>
+      </td>
+      <td class="num banque-col-amt"></td>
+      <td class="num banque-col-amt" data-solde-montant>
+        <?= $soldeVal !== null ? euro((float) $soldeVal) : '—' ?>
+      </td>
+      <td colspan="2"></td>
     </tr>
   <?php endforeach; ?>
   </tbody>
-  <tfoot>
-    <tr class="banque-sous-total">
-      <td colspan="3">
-        Sous-total relevé
-        <span class="muted" id="banque-sous-total-count"></span>
-        <div class="muted banque-sous-total-hint" id="banque-sous-total-hint">
-          = totaux « mouvements » du relevé CIC (filtre Mois = un relevé)
-        </div>
-      </td>
-      <td class="num" id="banque-sous-total-debit"><?= euro(abs((float) $banqueStats['debits'])) ?></td>
-      <td class="num" id="banque-sous-total-credit"><?= euro((float) $banqueStats['credits']) ?></td>
-      <td colspan="3"></td>
-    </tr>
-  </tfoot>
 </table>
 <p class="muted" id="banque-status" aria-live="polite"></p>
 <script>
@@ -177,10 +243,6 @@ rsort($moisList);
   if (!grid) return;
   var saveUrl = grid.getAttribute('data-save-url') || '';
   var csrf = grid.getAttribute('data-csrf') || '';
-  var elDebit = document.getElementById('banque-sous-total-debit');
-  var elCredit = document.getElementById('banque-sous-total-credit');
-  var elCount = document.getElementById('banque-sous-total-count');
-  var elHint = document.getElementById('banque-sous-total-hint');
   var moisSelect = document.getElementById('banque-mois-filter');
   var statusEl = document.getElementById('banque-status');
 
@@ -241,32 +303,40 @@ rsort($moisList);
     filterLabel.textContent = n === 0 ? 'aucun' : (n + ' TRI');
   }
 
-  function updateSousTotal() {
-    var sumD = 0;
-    var sumC = 0;
-    var n = 0;
-    grid.querySelectorAll('tbody tr[data-tri]').forEach(function (tr) {
-      if (tr.hidden) return;
-      n += 1;
-      sumD += parseFloat(tr.getAttribute('data-debit') || '0') || 0;
-      sumC += parseFloat(tr.getAttribute('data-credit') || '0') || 0;
+  function updateMoisSummaries() {
+    var moisKeys = {};
+    grid.querySelectorAll('tr.banque-total-mvt[data-mois]').forEach(function (tr) {
+      moisKeys[tr.getAttribute('data-mois') || ''] = true;
     });
-    if (elDebit) elDebit.textContent = euroFr(Math.abs(sumD));
-    if (elCredit) elCredit.textContent = euroFr(Math.abs(sumC));
-    if (elCount) elCount.textContent = n ? ' (' + n + ' ligne' + (n > 1 ? 's' : '') + ')' : '';
-    if (elHint && moisSelect) {
-      var m = moisSelect.value || '';
-      elHint.textContent = m
-        ? ('à comparer au total des mouvements du relevé ' + m)
-        : 'filtre Mois = un relevé pour recouper les totaux CIC';
-    }
+    Object.keys(moisKeys).forEach(function (mois) {
+      var sumD = 0;
+      var sumC = 0;
+      var visibleOps = 0;
+      grid.querySelectorAll('tbody tr[data-operation-id][data-mois="' + mois + '"]').forEach(function (tr) {
+        if (tr.hidden) return;
+        visibleOps += 1;
+        sumD += Math.abs(parseFloat(tr.getAttribute('data-debit') || '0') || 0);
+        sumC += Math.abs(parseFloat(tr.getAttribute('data-credit') || '0') || 0);
+      });
+      var hideSummary = visibleOps === 0;
+      grid.querySelectorAll('tbody tr[data-summary][data-mois="' + mois + '"]').forEach(function (tr) {
+        tr.hidden = hideSummary;
+      });
+      var mvt = grid.querySelector('tr.banque-total-mvt[data-mois="' + mois + '"]');
+      if (mvt && !hideSummary) {
+        var dEl = mvt.querySelector('[data-mvt-debit]');
+        var cEl = mvt.querySelector('[data-mvt-credit]');
+        if (dEl) dEl.textContent = euroFr(sumD);
+        if (cEl) cEl.textContent = euroFr(sumC);
+      }
+    });
   }
 
   function applyFilter() {
     var showAll = allCb && allCb.checked;
     var set = selectedSet();
     var mois = moisSelect ? (moisSelect.value || '') : '';
-    grid.querySelectorAll('tbody tr[data-tri]').forEach(function (tr) {
+    grid.querySelectorAll('tbody tr[data-operation-id]').forEach(function (tr) {
       var tri = tr.getAttribute('data-tri') || '';
       var rowMois = tr.getAttribute('data-mois') || '';
       var okTri = showAll || !!set[tri];
@@ -274,7 +344,7 @@ rsort($moisList);
       tr.hidden = !(okTri && okMois);
     });
     updateLabel();
-    updateSousTotal();
+    updateMoisSummaries();
   }
 
   function syncAllFromItems() {
@@ -323,7 +393,7 @@ rsort($moisList);
         if (cEl) cEl.value = formatAmtInput(data.credit);
         tr.setAttribute('data-debit', data.debit != null ? String(data.debit) : '0');
         tr.setAttribute('data-credit', data.credit != null ? String(data.credit) : '0');
-        updateSousTotal();
+        updateMoisSummaries();
         setStatus('Enregistré');
         setTimeout(function () { setStatus(''); }, 1200);
       })
@@ -331,28 +401,6 @@ rsort($moisList);
         tr.classList.remove('banque-row-saving');
         setStatus('Erreur réseau');
       });
-  }
-
-  function toggleSens(tr) {
-    var dEl = tr.querySelector('[data-field="debit"]');
-    var cEl = tr.querySelector('[data-field="credit"]');
-    if (!dEl || !cEl) return;
-    var d = parseFr(dEl.value);
-    var c = parseFr(cEl.value);
-    if (d != null && Math.abs(d) >= 0.005) {
-      cEl.value = formatAmtInput(d);
-      dEl.value = '';
-      saveLigne(tr, 'credit');
-      return;
-    }
-    if (c != null && Math.abs(c) >= 0.005) {
-      dEl.value = formatAmtInput(c);
-      cEl.value = '';
-      saveLigne(tr, 'debit');
-      return;
-    }
-    setStatus('Rien à basculer');
-    setTimeout(function () { setStatus(''); }, 1200);
   }
 
   if (moisSelect) {
@@ -430,7 +478,6 @@ rsort($moisList);
     var tr = t.closest('tr[data-operation-id]');
     if (!tr) return;
     var field = t.getAttribute('data-field') || '';
-    // Si on saisit dans une colonne, vider l’autre pour éviter débit+crédit
     if (field === 'debit' && t.value.trim() !== '') {
       var cEl = tr.querySelector('[data-field="credit"]');
       if (cEl) cEl.value = '';
@@ -456,14 +503,7 @@ rsort($moisList);
     }
   });
 
-  grid.addEventListener('click', function (ev) {
-    var btn = ev.target.closest('[data-action="toggle-sens"]');
-    if (!btn) return;
-    var tr = btn.closest('tr[data-operation-id]');
-    if (tr) toggleSens(tr);
-  });
-
-  updateSousTotal();
+  updateMoisSummaries();
 })();
 </script>
 <?php endif; ?>

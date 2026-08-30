@@ -11,6 +11,7 @@ use Voletmat\Database;
 use Voletmat\Importers\ReleveImporter;
 use Voletmat\PlanningService;
 use Voletmat\PrevisionnelService;
+use Voletmat\TriLignesExcel;
 
 Auth::startSession();
 
@@ -216,6 +217,11 @@ switch ($page) {
         $categories = $pdo->query(
             'SELECT code, libelle FROM categories ORDER BY code COLLATE NOCASE'
         )->fetchAll();
+        // Liste TRI = modèle N5 (+ VENTE/AVOIR), pas les orphelins N4
+        $categories = array_values(array_filter(
+            $categories,
+            static fn (array $c): bool => BanqueTriSuggester::codeAutorise((string) $c['code'])
+        ));
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && $exercice) {
             csrf_verify();
@@ -228,6 +234,13 @@ switch ($page) {
                     // Chaîne vide = choix manuel « — » (ne pas re-suggérer)
                     $triDb = '';
                 } else {
+                    if (!BanqueTriSuggester::codeAutorise($tri)) {
+                        if ($ajax) {
+                            json_out(['ok' => false, 'erreur' => 'Code TRI hors modèle N5.'], 400);
+                        }
+                        flash('erreur', 'Code TRI hors modèle N5.');
+                        redirect('banque');
+                    }
                     $chk = $pdo->prepare('SELECT code FROM categories WHERE code = ?');
                     $chk->execute([$tri]);
                     if (!$chk->fetch()) {
@@ -347,7 +360,7 @@ switch ($page) {
 
         if ($exercice) {
             // Complète les TRI encore NULL (ex. anciens imports) via l’historique
-            (new BanqueTriSuggester($pdo))->appliquerSurVides((int) $exercice['id']);
+            (new BanqueTriSuggester($pdo, (int) $exercice['id']))->appliquerSurVides((int) $exercice['id']);
             $st = $pdo->prepare(
                 'SELECT * FROM operations_bancaires
                  WHERE exercice_id = ?
@@ -369,6 +382,79 @@ switch ($page) {
                 'SELECT * FROM operations_bancaires ORDER BY date_operation DESC, id DESC LIMIT 500'
             )->fetchAll();
         }
+
+        // Soldes fin de mois = solde d’ouverture exercice + mouvements app (pas les totaux PDF)
+        $releveSoldes = [];
+        if ($exercice && $operations) {
+            $ouvSolde = isset($exercice['solde_ouverture']) && $exercice['solde_ouverture'] !== null
+                && $exercice['solde_ouverture'] !== ''
+                ? (float) $exercice['solde_ouverture']
+                : null;
+            $ouvDate = trim((string) ($exercice['solde_ouverture_date'] ?? ''));
+            $ouvYm = preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $ouvDate, $om)
+                ? $om[1] . $om[2]
+                : null;
+
+            /** @var array<string, array{sumD:float,sumC:float,last:string}> $parMois */
+            $parMois = [];
+            foreach ($operations as $o) {
+                $am = (string) ($o['annee_mois'] ?? '');
+                if ($am === '' && !empty($o['date_operation'])) {
+                    $am = annee_mois_from_date((string) $o['date_operation']);
+                }
+                if ($am === '') {
+                    continue;
+                }
+                if (!isset($parMois[$am])) {
+                    $parMois[$am] = ['sumD' => 0.0, 'sumC' => 0.0, 'last' => ''];
+                }
+                if ($o['debit'] !== null) {
+                    $parMois[$am]['sumD'] += abs((float) $o['debit']);
+                }
+                if ($o['credit'] !== null) {
+                    $parMois[$am]['sumC'] += (float) $o['credit'];
+                }
+                $d = (string) ($o['date_operation'] ?? '');
+                if ($d > $parMois[$am]['last']) {
+                    $parMois[$am]['last'] = $d;
+                }
+            }
+            $moisAsc = array_keys($parMois);
+            sort($moisAsc, SORT_STRING);
+
+            if ($ouvSolde !== null && $ouvYm !== null) {
+                $cursor = $ouvSolde;
+                foreach ($moisAsc as $ymRaw) {
+                    $ym = (string) $ymRaw;
+                    $info = $parMois[$ymRaw] ?? $parMois[$ym] ?? null;
+                    if ($info === null) {
+                        continue;
+                    }
+                    if ($ym < $ouvYm) {
+                        continue;
+                    }
+                    if ($ym === $ouvYm) {
+                        // Point de référence (ex. 30/06/2025) — mouvements du mois déjà inclus
+                        $releveSoldes[$ym] = ['date' => $ouvDate, 'solde' => $ouvSolde];
+                        $cursor = $ouvSolde;
+                        continue;
+                    }
+                    $cursor = round($cursor + $info['sumC'] - $info['sumD'], 2);
+                    $dateFin = $info['last'] !== '' ? $info['last'] : (
+                        preg_match('/^(\d{4})(\d{2})$/', $ym, $m)
+                            ? sprintf(
+                                '%04d-%02d-%02d',
+                                (int) $m[1],
+                                (int) $m[2],
+                                (int) date('t', mktime(0, 0, 0, (int) $m[2], 1, (int) $m[1]))
+                            )
+                            : ''
+                    );
+                    $releveSoldes[$ym] = ['date' => $dateFin, 'solde' => $cursor];
+                }
+            }
+        }
+
         require dirname(__DIR__) . '/templates/banque.php';
         break;
 
@@ -566,12 +652,14 @@ switch ($page) {
                     (exercice_id, date_operation, date_valeur, libelle, debit, credit, categorie_code, annee_mois, source, import_id, empreinte)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?)'
                 );
-                $triSuggester = new BanqueTriSuggester($pdo);
+                $triSuggester = new BanqueTriSuggester($pdo, $eid);
                 $accepted = 0;
                 $preRemplis = 0;
                 foreach ($lignes as $l) {
                     $mois = $l['date_operation'] ? annee_mois_from_date($l['date_operation']) : null;
-                    $tri = $triSuggester->suggest((string) ($l['libelle'] ?? ''));
+                    $debit = $l['debit'] !== null ? (float) $l['debit'] : null;
+                    $credit = $l['credit'] !== null ? (float) $l['credit'] : null;
+                    $tri = $triSuggester->suggest((string) ($l['libelle'] ?? ''), $debit, $credit);
                     $ins->execute([
                         $eid,
                         $l['date_operation'],
@@ -978,21 +1066,38 @@ switch ($page) {
                        montant_ttc = excluded.montant_ttc'
                 )->execute([$eid, $code, $ht, $tva, $ttc]);
 
+                // Règle métier : URSSAF = 42 % de REM (HT, sans TVA)
+                if ($code === 'REM') {
+                    $urssafHt = round($ht * TriLignesExcel::URSSAF_PCT_REM, 2);
+                    $pdo->prepare(
+                        'INSERT INTO budgets (exercice_id, categorie_code, montant_ht, montant_tva, montant_ttc)
+                         VALUES (?,?,?,?,?)
+                         ON CONFLICT(exercice_id, categorie_code) DO UPDATE SET
+                           montant_ht = excluded.montant_ht,
+                           montant_tva = excluded.montant_tva,
+                           montant_ttc = excluded.montant_ttc'
+                    )->execute([$eid, 'URSSAF', $urssafHt, 0.0, $urssafHt]);
+                }
+
                 if ($ajax) {
                     $grille = (new PrevisionnelService($pdo))->grille($eid);
                     $pdo->prepare('UPDATE exercices SET objectif_ca_ht = ? WHERE id = ?')
                         ->execute([(float) ($grille['objectif_ca_ht'] ?? 0), $eid]);
                     $ligne = null;
+                    $ligneUrssaf = null;
                     foreach ($grille['lignes'] as $l) {
                         if ($l['code'] === $code) {
                             $ligne = $l;
-                            break;
+                        }
+                        if ($l['code'] === 'URSSAF') {
+                            $ligneUrssaf = $l;
                         }
                     }
                     json_out([
                         'ok' => true,
                         'categorie_code' => $code,
                         'ligne' => $ligne,
+                        'ligne_urssaf' => $code === 'REM' ? $ligneUrssaf : null,
                         'totaux' => $grille['totaux'],
                         'synthese' => $grille['synthese'],
                         'marge_pct' => $grille['marge_pct'] ?? 0,

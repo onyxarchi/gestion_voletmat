@@ -6,7 +6,8 @@ namespace Voletmat;
 /**
  * Ordre + familles de couleur = feuille Excel Prévisionnel / COMPTA ANALYTIQUE.
  * Les codes « mensuel » se paient chaque mois sur toute la durée de l’exercice
- * (ex. 18 mois pour N5) ; les autres restent un total de période (pas × nb mois).
+ * (18 mois pour N5 ; 12 mois dès N6 / années civiles à partir du 1er janvier 2027).
+ * Les autres restent un total de période (pas × nb mois).
  */
 final class TriLignesExcel
 {
@@ -74,4 +75,7 @@ final class TriLignesExcel
     {
         return !empty(self::meta($code)['mensuel']);
     }
+
+    /** URSSAF = 42 % du budget REM (HT). */
+    public const URSSAF_PCT_REM = 0.42;
 }
