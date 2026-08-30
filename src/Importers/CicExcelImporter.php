@@ -15,7 +15,9 @@ final class CicExcelImporter
     /**
      * @return array{
      *   compte:?string,
+     *   solde_initial:?float,
      *   solde_final:?float,
+     *   ecart_solde:?float,
      *   lignes: list<array{
      *     ligne_no:int,
      *     date_operation:?string,
@@ -175,7 +177,13 @@ final class CicExcelImporter
 
     /**
      * @param array<int, array<int, mixed>> $rows
-     * @return array{compte:?string,solde_final:?float,lignes:list<array<string,mixed>>}
+     * @return array{
+     *   compte:?string,
+     *   solde_initial:?float,
+     *   solde_final:?float,
+     *   ecart_solde:?float,
+     *   lignes:list<array<string,mixed>>
+     * }
      */
     private function extractMovements(array $rows, string $sheetName): array
     {
@@ -191,8 +199,26 @@ final class CicExcelImporter
             throw new RuntimeException('En-tête Date / Libellé / Débit / Crédit introuvable dans la feuille « ' . $sheetName . ' ».');
         }
 
+        $soldeInitial = null;
+        $soldeFinal = null;
+        foreach ($rows as $cols) {
+            foreach ($cols as $v) {
+                if (!is_string($v)) {
+                    continue;
+                }
+                $t = trim($v);
+                if (str_starts_with($t, 'Solde initial')) {
+                    $soldeInitial = $this->pickSoldeAmount($cols) ?? $soldeInitial;
+                }
+                if (str_starts_with($t, 'Solde au')) {
+                    $soldeFinal = $this->pickSoldeAmount($cols) ?? $soldeFinal;
+                }
+            }
+        }
+
         $lignes = [];
         $no = 0;
+        $seenKeys = [];
         foreach ($rows as $r => $cols) {
             if ($r <= $headerRow) {
                 continue;
@@ -220,9 +246,21 @@ final class CicExcelImporter
                 $motif = 'Débit et crédit tous deux renseignés';
             }
 
-            $emp = ($dateOp !== null)
-                ? hash('sha256', $dateOp . '|' . $lib . '|' . ($debit === null ? '' : number_format($debit, 2, '.', '')) . '|' . ($credit === null ? '' : number_format($credit, 2, '.', '')))
-                : null;
+            $emp = null;
+            $empLegacy = null;
+            if ($dateOp !== null) {
+                $key = $dateOp . '|' . $lib . '|'
+                    . ($debit === null ? '' : number_format($debit, 2, '.', '')) . '|'
+                    . ($credit === null ? '' : number_format($credit, 2, '.', ''));
+                $seenKeys[$key] = ($seenKeys[$key] ?? 0) + 1;
+                $occ = $seenKeys[$key];
+                // Occurrence : 2× CB identiques le même jour restent distincts
+                $emp = hash('sha256', $key . '|' . $occ);
+                // Compat empreintes importées avant (sans n°)
+                if ($occ === 1) {
+                    $empLegacy = hash('sha256', $key);
+                }
+            }
 
             $lignes[] = [
                 'ligne_no' => $no,
@@ -234,26 +272,57 @@ final class CicExcelImporter
                 'statut' => $statut,
                 'motif' => $motif,
                 'empreinte' => $emp,
+                'empreinte_legacy' => $empLegacy,
             ];
         }
 
-        $solde = null;
-        foreach ($rows as $cols) {
-            foreach ($cols as $v) {
-                if (is_string($v) && str_contains($v, 'Solde au')) {
-                    // solde souvent en col F
-                }
+        $sumDebit = 0.0;
+        $sumCredit = 0.0;
+        foreach ($lignes as $l) {
+            if ($l['statut'] !== 'ok') {
+                continue;
             }
-            if (isset($cols[4]) && is_string($cols[4]) && str_contains($cols[4], 'Solde au') && isset($cols[6]) && is_numeric($cols[6])) {
-                $solde = (float) $cols[6];
-            }
+            $sumDebit += (float) ($l['debit'] ?? 0);
+            $sumCredit += (float) ($l['credit'] ?? 0);
+        }
+
+        $ecartSolde = null;
+        $soldeInitialDeduit = false;
+        if ($soldeFinal !== null && $soldeInitial !== null) {
+            // Débits CIC souvent négatifs : solde_final ≈ solde_initial + crédits + débits
+            $calcule = $soldeInitial + $sumCredit + $sumDebit;
+            $ecartSolde = round($soldeFinal - $calcule, 2);
+        } elseif ($soldeFinal !== null) {
+            $soldeInitial = round($soldeFinal - $sumCredit - $sumDebit, 2);
+            $soldeInitialDeduit = true;
+            $ecartSolde = null; // pas de contrôle possible sans solde initial source
         }
 
         return [
             'compte' => $sheetName,
-            'solde_final' => $solde,
+            'solde_initial' => $soldeInitial,
+            'solde_final' => $soldeFinal,
+            'solde_initial_deduit' => $soldeInitialDeduit,
+            'ecart_solde' => $ecartSolde,
+            'sum_debit' => round($sumDebit, 2),
+            'sum_credit' => round($sumCredit, 2),
             'lignes' => $lignes,
         ];
+    }
+
+    /** @param array<int, mixed> $cols */
+    private function pickSoldeAmount(array $cols): ?float
+    {
+        foreach ([6, 5, 7, 4] as $c) {
+            if (!isset($cols[$c])) {
+                continue;
+            }
+            $a = $this->toAmount($cols[$c]);
+            if ($a !== null) {
+                return $a;
+            }
+        }
+        return null;
     }
 
     private function excelDateToIso(mixed $v): ?string

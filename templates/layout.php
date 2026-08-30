@@ -7,12 +7,11 @@ $user = \Voletmat\Auth::user();
 $flashes = take_flashes();
 $nav = [
     'accueil' => 'CA',
-    'factures' => 'Factures',
-    'planning' => 'Planning',
-    'banque' => 'Banque',
-    'import' => 'Import',
-    'analytique' => 'Analytique',
+    'planning' => 'Planning facturation',
+    'factures' => 'Facturation',
     'previsionnel' => 'Prévisionnel',
+    'banque' => 'Banque',
+    'analytique' => 'Analytique',
     'exercices' => 'Exercices',
     'export' => 'Export',
 ];
@@ -60,9 +59,6 @@ $bodyClass = match ($page ?? '') {
   <?= $content ?>
 </main>
 
-<footer class="app-footer">
-  <strong>Vol&amp;Mat Architecture</strong> · Gestion · montants en euros · dates JJ/MM/AAAA
-</footer>
 <?php if (!empty($pageScripts) && is_array($pageScripts)): ?>
   <?php foreach ($pageScripts as $src): ?>
     <script src="<?= e((string) $src) ?>" defer></script>

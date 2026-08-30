@@ -78,9 +78,11 @@ Puis rechargez Factures / Banque dans le navigateur.
 
 ## Import relevé CIC
 
-1. Menu **Import** → déposer un `.xlsx` export CIC (ex. `aides/comptes.xlsx`)
+1. Menu **Banque** → **Importer un relevé CIC** → déposer un `.xlsx` **ou** un `.pdf` CIC
 2. Prévisualisation : OK / doublons / incertains  
 3. Validation : seules les lignes OK sont enregistrées — **aucun montant inventé**
+
+PDF : texte natif (pas un scan image). Si l’extraction échoue, installez `pdftotext` (poppler) sur le NAS, ou exportez en Excel depuis CIC.
 
 Test CLI :
 

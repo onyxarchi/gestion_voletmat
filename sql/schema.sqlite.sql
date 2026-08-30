@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS exercices (
     date_debut TEXT NOT NULL,
     date_fin TEXT NOT NULL,
     actif INTEGER NOT NULL DEFAULT 0,
+    objectif_ca_ht REAL,
+    marge_pct REAL NOT NULL DEFAULT 0,
+    previ_mois INTEGER NOT NULL DEFAULT 12,
     CHECK (date_debut <= date_fin)
 );
 
@@ -47,6 +50,7 @@ CREATE TABLE IF NOT EXISTS echeances_facturation (
     montant_ht REAL NOT NULL DEFAULT 0,
     statut TEXT NOT NULL DEFAULT 'a_facturer',
     couleur TEXT,
+    ecart_ok INTEGER NOT NULL DEFAULT 0,
     UNIQUE (affaire_id, annee_mois)
 );
 
@@ -63,6 +67,8 @@ CREATE TABLE IF NOT EXISTS factures (
     canal TEXT,
     affaire_id INTEGER REFERENCES affaires(id),
     notes TEXT,
+    statut_paiement TEXT,
+    est_mar INTEGER,
     UNIQUE (exercice_id, numero)
 );
 
@@ -92,6 +98,10 @@ CREATE TABLE IF NOT EXISTS imports (
     lignes_acceptees INTEGER NOT NULL DEFAULT 0,
     lignes_rejetees INTEGER NOT NULL DEFAULT 0,
     lignes_doublons INTEGER NOT NULL DEFAULT 0,
+    solde_initial REAL,
+    solde_final REAL,
+    ecart_solde REAL,
+    controle_json TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     valide_at TEXT
 );

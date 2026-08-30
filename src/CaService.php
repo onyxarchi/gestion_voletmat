@@ -56,12 +56,128 @@ final class CaService
         $annees = $this->mergeAnnees($fromFactures);
         $progression = $this->buildProgression($annees);
         $mensuel = $exerciceId ? $this->mensuelExercice($exerciceId) : [];
+        $recap = $exerciceId ? $this->recapExercice($exerciceId, $annees) : null;
 
         return [
             'annees' => $annees,
             'progression' => $progression,
             'mensuel' => $mensuel,
+            'recap' => $recap,
         ];
+    }
+
+    /**
+     * Bloc Excel « exercice en cours » + « RÉCAPITULATIF » (CA / MAR).
+     *
+     * @param list<array{annee:int, janv_juin:float, juil_dec:float, annee_totale:float}> $annees
+     * @return array{
+     *   declarer: list<array{annee:int, ca:float}>,
+     *   impayes: float,
+     *   ca_encaisse: float,
+     *   lignes: list<array{annee:int, ca_ht:float, ca_mar:float, pct_mar:?float}>
+     * }
+     */
+    public function recapExercice(int $exerciceId, array $annees = []): array
+    {
+        $st = $this->pdo->prepare('SELECT date_debut, date_fin FROM exercices WHERE id = ?');
+        $st->execute([$exerciceId]);
+        $ex = $st->fetch();
+        if (!$ex) {
+            return ['declarer' => [], 'impayes' => 0.0, 'ca_encaisse' => 0.0, 'lignes' => []];
+        }
+        $debut = (string) $ex['date_debut'];
+        $fin = (string) $ex['date_fin'];
+        $y0 = (int) substr($debut, 0, 4);
+        $y1 = (int) substr($fin, 0, 4);
+
+        $declarer = [];
+        for ($y = $y0; $y <= $y1; $y++) {
+            $d = max($debut, sprintf('%d-01-01', $y));
+            $f = min($fin, sprintf('%d-12-31', $y));
+            $declarer[] = [
+                'annee' => $y,
+                'ca' => $this->caHtBetween($d, $f),
+            ];
+        }
+
+        $caEncaisse = $this->caHtBetween($debut, $fin);
+        $impayes = $this->caImpayesExercice($exerciceId);
+        $marParAnnee = $this->caMarParAnneeCivile($exerciceId);
+
+        if ($annees === []) {
+            $annees = $this->mergeAnnees($this->semestresFromFactures());
+        }
+        $byYear = [];
+        foreach ($annees as $r) {
+            $byYear[(int) $r['annee']] = $r;
+        }
+
+        $lignes = [];
+        for ($y = $y0; $y <= $y1; $y++) {
+            if (isset($byYear[$y])) {
+                $caHt = (float) $byYear[$y]['annee_totale'];
+            } else {
+                $caHt = $this->caHtBetween(sprintf('%d-01-01', $y), sprintf('%d-12-31', $y));
+            }
+            $caMar = (float) ($marParAnnee[$y] ?? 0.0);
+            $pct = $caHt > 0.005 ? ($caMar / $caHt) : null;
+            $lignes[] = [
+                'annee' => $y,
+                'ca_ht' => round($caHt, 2),
+                'ca_mar' => round($caMar, 2),
+                'pct_mar' => $pct,
+            ];
+        }
+
+        return [
+            'declarer' => $declarer,
+            'impayes' => round($impayes, 2),
+            'ca_encaisse' => round($caEncaisse, 2),
+            'lignes' => $lignes,
+        ];
+    }
+
+    /** Factures en litige (jaune planning) — hors payé / pas encore payé. */
+    private function caImpayesExercice(int $exerciceId): float
+    {
+        $couleurs = (new PlanningService($this->pdo))->couleursFactures($exerciceId);
+        $st = $this->pdo->prepare('SELECT id, ht FROM factures WHERE exercice_id = ?');
+        $st->execute([$exerciceId]);
+        $sum = 0.0;
+        foreach ($st->fetchAll() as $r) {
+            $id = (int) $r['id'];
+            if (($couleurs[$id] ?? '') === 'litige') {
+                $sum += (float) $r['ht'];
+            }
+        }
+        return $sum;
+    }
+
+    /**
+     * CA MAR par année civile : factures marquées MAR (planning ou forcé).
+     *
+     * @return array<int, float>
+     */
+    private function caMarParAnneeCivile(int $exerciceId): array
+    {
+        $meta = (new PlanningService($this->pdo))->metaFactures($exerciceId);
+        $st = $this->pdo->prepare(
+            'SELECT id, date_facture, ht FROM factures WHERE exercice_id = ?'
+        );
+        $st->execute([$exerciceId]);
+        $out = [];
+        foreach ($st->fetchAll() as $r) {
+            $id = (int) $r['id'];
+            if (empty($meta[$id]['mar'])) {
+                continue;
+            }
+            $y = (int) substr((string) $r['date_facture'], 0, 4);
+            if ($y < 2000) {
+                continue;
+            }
+            $out[$y] = ($out[$y] ?? 0.0) + (float) $r['ht'];
+        }
+        return $out;
     }
 
     /**

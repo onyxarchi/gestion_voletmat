@@ -114,12 +114,14 @@ def to_float(v) -> float | None:
 
 
 def eval_simple_amount(v) -> float | None:
-    """Accepte un nombre ou une formule arithmétique simple type =21900*0.9."""
+    """Accepte un nombre ou une formule arithmétique simple type =21900*0.9 ou =C3*42%."""
     n = to_float(v)
     if n is not None:
         return n
     if isinstance(v, str) and v.startswith("="):
         expr = v[1:].replace(" ", "")
+        # 42% → 0.42
+        expr = re.sub(r"(\d+(?:\.\d+)?)%", lambda m: str(float(m.group(1)) / 100.0), expr)
         # uniquement chiffres, + - * / . ( )
         if re.fullmatch(r"[\d\.\+\-\*/\(\)]+", expr):
             try:
@@ -127,6 +129,60 @@ def eval_simple_amount(v) -> float | None:
             except Exception:
                 return None
     return None
+
+
+def import_previsionnel(
+    con: sqlite3.Connection,
+    ws,
+    eid: int,
+    ws_values=None,
+) -> int:
+    """Codes TRI en col A, budget HT col C, TVA col D, TTC col E.
+
+    Préfère les valeurs en cache (data_only) quand elles existent : beaucoup de
+    cellules sont des formules (ex. =C3*42%, références croisées).
+    """
+    n = 0
+    src = ws_values if ws_values is not None else ws
+    for r in range(3, 45):
+        code = ws.cell(r, 1).value
+        if not code or not isinstance(code, str):
+            continue
+        code = code.strip()
+        if not con.execute("SELECT 1 FROM categories WHERE code=?", (code,)).fetchone():
+            continue
+
+        ht = to_float(src.cell(r, 3).value)
+        tva = to_float(src.cell(r, 4).value)
+        ttc = to_float(src.cell(r, 5).value)
+
+        if ht is None:
+            ht = eval_simple_amount(ws.cell(r, 3).value)
+        if tva is None:
+            tva = eval_simple_amount(ws.cell(r, 4).value)
+        if ttc is None:
+            ttc = eval_simple_amount(ws.cell(r, 5).value)
+
+        if ht is None and ttc is None:
+            continue
+        if ht is None:
+            ht = 0.0
+        if ttc is None:
+            ttc = ht + (tva or 0.0)
+        if tva is None:
+            tva = max(0.0, float(ttc) - float(ht))
+
+        con.execute(
+            """INSERT INTO budgets (exercice_id, categorie_code, montant_ht, montant_tva, montant_ttc)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT(exercice_id, categorie_code) DO UPDATE SET
+                 montant_ht=excluded.montant_ht,
+                 montant_tva=excluded.montant_tva,
+                 montant_ttc=excluded.montant_ttc""",
+            (eid, code, float(ht), float(tva), float(ttc)),
+        )
+        n += 1
+    return n
 
 
 def taux_from_tva_formula(cell_val, ht: float | None) -> tuple[float, float | None]:
@@ -425,38 +481,6 @@ def import_planning(con: sqlite3.Connection, ws, eid: int, months: list[str], fi
     return na, ne
 
 
-def import_previsionnel(con: sqlite3.Connection, ws, eid: int) -> int:
-    """Codes TRI en col A, budget HT col C, TTC col E (valeurs ou formules simples)."""
-    n = 0
-    for r in range(3, 45):
-        code = ws.cell(r, 1).value
-        if not code or not isinstance(code, str):
-            continue
-        code = code.strip()
-        if not con.execute("SELECT 1 FROM categories WHERE code=?", (code,)).fetchone():
-            continue
-        ht = eval_simple_amount(ws.cell(r, 3).value)
-        if ht is None:
-            ht = to_float(ws.cell(r, 3).value) or 0.0
-        ttc = eval_simple_amount(ws.cell(r, 5).value)
-        if ttc is None:
-            ttc = to_float(ws.cell(r, 5).value)
-        if ttc is None:
-            ttc = ht
-        tva = max(0.0, ttc - ht) if ttc is not None and ht is not None else 0.0
-        con.execute(
-            """INSERT INTO budgets (exercice_id, categorie_code, montant_ht, montant_tva, montant_ttc)
-               VALUES (?,?,?,?,?)
-               ON CONFLICT(exercice_id, categorie_code) DO UPDATE SET
-                 montant_ht=excluded.montant_ht,
-                 montant_tva=excluded.montant_tva,
-                 montant_ttc=excluded.montant_ttc""",
-            (eid, code, ht or 0.0, tva, ttc or 0.0),
-        )
-        n += 1
-    return n
-
-
 def import_ca(con: sqlite3.Connection, ws) -> int:
     """Historique CA : lignes CA 2021… avec montants en dur ou formules simples."""
     n = 0
@@ -508,6 +532,10 @@ def main() -> int:
     log("Lecture des classeurs (peut prendre ~30 s)…")
     wb4 = load_workbook(N4, data_only=False, keep_vba=False)
     wb5 = load_workbook(N5, data_only=False, keep_vba=False)
+    # Valeurs calculées en cache pour le prévisionnel (formules HT/TVA/TTC)
+    log("Lecture des valeurs en cache (prévisionnel)…")
+    wb4_val = load_workbook(N4, data_only=True, keep_vba=False)
+    wb5_val = load_workbook(N5, data_only=True, keep_vba=False)
 
     con = sqlite3.connect(str(DB))
     con.execute("PRAGMA foreign_keys = ON")
@@ -533,7 +561,7 @@ def main() -> int:
     ]
     na, ne = import_planning(con, wb4["Planning facturation 24-25"], eid4, n4_months)
     log(f"  Affaires / échéances : {na} / {ne}")
-    n = import_previsionnel(con, wb4["Prévisionnel 24-25"], eid4)
+    n = import_previsionnel(con, wb4["Prévisionnel 24-25"], eid4, wb4_val["Prévisionnel 24-25"])
     log(f"  Budgets prévisionnels : {n}")
     n = import_ca(con, wb4["CA"])
     log(f"  CA historique (feuille N4) : {n}")
@@ -546,7 +574,7 @@ def main() -> int:
     log(f"  Banque : {n}")
     na, ne = import_planning(con, wb5["Planning facturation 25-26"], eid5, N5_MONTHS)
     log(f"  Affaires / échéances : {na} / {ne}")
-    n = import_previsionnel(con, wb5["Prévisionnel 25-26"], eid5)
+    n = import_previsionnel(con, wb5["Prévisionnel 25-26"], eid5, wb5_val["Prévisionnel 25-26"])
     log(f"  Budgets prévisionnels : {n}")
     n = import_ca(con, wb5["CA"])
     log(f"  CA historique (feuille N5, complète) : {n}")

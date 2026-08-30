@@ -31,6 +31,7 @@ $evo = $stats['ca_evolution'] ?? null;
 $evoLabel = $evo === null ? '—' : (($evo >= 0 ? '+' : '') . number_format($evo * 100, 1, ',', ' ') . ' %');
 ?>
 <h1>Progression CA</h1>
+
 <?php if ($exercice): ?>
   <p class="lead">
     Exercice en cours : <strong><?= e($exercice['libelle']) ?></strong>
@@ -54,7 +55,7 @@ $evoLabel = $evo === null ? '—' : (($evo >= 0 ? '+' : '') . number_format($evo
     <div class="value"><?= euro($stats['ca_ht'] ?? null) ?></div>
   </div>
   <div class="card">
-    <div class="label">Factures (exercice)</div>
+    <div class="label">Lignes facturation</div>
     <div class="value"><?= (int) ($stats['nb_factures'] ?? 0) ?></div>
   </div>
 </div>

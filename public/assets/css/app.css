@@ -174,6 +174,11 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; color: var(--vm-blue-dark); }
 .card:nth-child(2n) { border-left-color: var(--vm-coral); }
 .card .label { color: var(--muted); font-size: 0.8rem; }
 .card .value { font-size: 1.25rem; font-weight: 650; margin-top: 0.2rem; color: var(--ink); }
+.card .card-hint { margin-top: 0.25rem; font-size: 0.72rem; color: var(--muted); }
+.card.card-ok .value { color: var(--ok); }
+.card.card-ok { border-color: #b7d0c6; background: var(--ok-bg); }
+.card.card-ko .value { color: var(--danger); }
+.card.card-ko { border-color: #e8b8bc; background: var(--danger-bg); }
 
 .flash {
   padding: 0.7rem 0.9rem;
@@ -242,6 +247,160 @@ tr.row-new .btn { padding: 0.35rem 0.65rem; font-size: 0.82rem; white-space: now
 }
 .pill.ok { background: var(--ok-bg); color: var(--ok); }
 .pill.doublon { background: var(--info-bg); color: var(--info); }
+.pill.incertain { background: var(--warn-bg); color: var(--warn); }
+
+.cell-tri-banque {
+  font: inherit;
+  font-size: 0.75rem;
+  max-width: 14rem;
+  padding: 0.2rem 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+}
+.cell-tri-banque.tri-saving { opacity: 0.55; }
+.cell-tri-banque.tri-ok { border-color: #8bbf9f; }
+
+table.banque-grid .banque-libelle {
+  width: 100%;
+  min-width: 12rem;
+  max-width: 28rem;
+  text-align: left;
+  font: inherit;
+}
+table.banque-grid .banque-amt {
+  width: 6.2rem;
+  max-width: 100%;
+}
+table.banque-grid .banque-col-sens {
+  width: 2.2rem;
+  text-align: center;
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+.banque-sens-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--vm-blue-dark);
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.banque-sens-btn:hover {
+  background: var(--vm-blue-soft);
+  border-color: var(--vm-blue);
+}
+table.banque-grid tr.banque-row-saving {
+  opacity: 0.65;
+}
+#banque-status {
+  min-height: 1.2em;
+  margin: 0.35rem 0 0;
+}
+
+table.banque-grid tr.row-tri-vide > td {
+  background: var(--vm-coral-soft);
+  color: #8a3a40;
+}
+table.banque-grid tr.row-tri-vide:hover > td {
+  background: #f3d6d8;
+}
+table.banque-grid tr.row-tri-vide .cell-tri-banque {
+  border-color: #e0a0a4;
+  background: #fff8f8;
+}
+table.banque-grid tfoot td {
+  font-weight: 600;
+  border-top: 2px solid var(--line);
+  background: var(--surface);
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+table.data tfoot tr.import-sous-total td {
+  font-weight: 600;
+  border-top: 2px solid var(--line);
+  background: var(--surface);
+}
+
+.banque-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.75rem 0 1rem;
+}
+.banque-mois-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+.banque-mois-filter select {
+  min-width: 7rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.banque-sous-total-hint {
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-top: 0.15rem;
+}
+.banque-tri-filter {
+  position: relative;
+}
+.banque-tri-filter-count {
+  margin-left: 0.35rem;
+  font-weight: 700;
+  color: var(--vm-blue-dark);
+}
+.banque-tri-filter-panel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 20;
+  min-width: 12rem;
+  max-height: min(22rem, 70vh);
+  overflow: auto;
+  padding: 0.45rem 0.35rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(15, 35, 55, 0.12);
+}
+.banque-tri-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.45rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.banque-tri-filter-item:hover { background: var(--vm-blue-soft); }
+.banque-tri-filter-all {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.4rem;
+}
+
+.import-controle {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.import-controle p { margin: 0.35rem 0; }
+.import-controle-ok { border-color: #b7d0c6; background: var(--ok-bg); }
+.import-controle-warn { border-color: #e0c98a; background: var(--warn-bg); }
+.import-controle .ok-msg { color: var(--ok); font-weight: 600; }
+.import-controle .warn-msg { color: var(--warn); font-weight: 600; }
+
 .pill.incertain { background: var(--warn-bg); color: var(--warn); }
 .pill.rejete { background: var(--danger-bg); color: var(--danger); }
 
@@ -356,11 +515,13 @@ body.page-login .app-footer { border-top: none; }
 /* —— Planning facturation —— */
 .wrap:has(.planning-scroll) { max-width: none; }
 
-/* Planning : zone de scroll dédiée → titres et totaux restent figés */
+/* Planning : zone de scroll dédiée (seul conteneur qui défile) */
 body.page-planning {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
 }
 body.page-planning .wrap {
   flex: 1 1 auto;
@@ -369,6 +530,8 @@ body.page-planning .wrap {
   max-width: none;
   min-height: 0;
   width: 100%;
+  overflow: hidden;
+  padding-bottom: 0.5rem;
 }
 body.page-planning .planning-top {
   flex: 0 0 auto;
@@ -376,14 +539,16 @@ body.page-planning .planning-top {
 body.page-planning .planning-scroll {
   flex: 1 1 auto;
   max-height: none;
-  height: calc(100vh - 12.5rem);
-  min-height: 16rem;
+  height: auto;
+  min-height: 12rem;
 }
 body.page-planning .planning-footer {
   flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
 }
 body.page-planning .app-footer {
-  flex: 0 0 auto;
+  display: none;
 }
 .inline-filter {
   display: flex;
@@ -424,12 +589,34 @@ body.page-planning .app-footer {
 .cards-compact { margin-top: 0; }
 .planning-top {
   display: flex;
-  align-items: baseline;
-  gap: 0.85rem;
+  align-items: center;
+  gap: 0.75rem 1rem;
   flex-wrap: wrap;
-  margin: 0 0 0.65rem;
+  margin: 0 0 0.55rem;
 }
-.planning-top h1 { margin: 0; }
+.planning-top h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  flex: 1 1 auto;
+  min-width: 12rem;
+  white-space: nowrap;
+}
+.planning-top .btn-nouvelle-ligne {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.planning-top .legend-inline {
+  margin: 0;
+  margin-left: auto;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+.planning-top .legend-inline .leg {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+}
 .planning-ex-tag {
   font-size: 0.85rem;
   color: var(--muted);
@@ -437,107 +624,179 @@ body.page-planning .app-footer {
 }
 .planning-top .inline-filter { margin: 0; }
 .planning-footer {
-  margin-top: 0.85rem;
-  padding-top: 0.75rem;
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
   border-top: 1px solid var(--line);
 }
-.planning-footer .legend { margin-bottom: 0.65rem; }
-.planning-footer .cards-compact { margin-bottom: 0.5rem; }
-.planning-note {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.35;
+.planning-footer .cards-compact {
+  margin-bottom: 0;
+  gap: 0.45rem;
 }
+.planning-footer .card {
+  padding: 0.4rem 0.65rem;
+}
+.planning-footer .card .label {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+.planning-footer .card .value {
+  font-size: 1.05rem;
+  margin-top: 0.1rem;
+}
+.planning-footer .card .card-hint {
+  margin-top: 0.1rem;
+  font-size: 0.65rem;
+}
+
+/* Conteneur de scroll : pas de border-radius (casse sticky dans Chromium) */
 .planning-scroll {
+  --pg-ref: 4.75rem;
+  --pg-client: 8.5rem;
+  --pg-num: 5.4rem;
+  --pg-left-client: var(--pg-ref);
+  --pg-left-contrat: calc(var(--pg-ref) + var(--pg-client));
+  --pg-left-n1: calc(var(--pg-left-contrat) + var(--pg-num));
+  --pg-left-factn: calc(var(--pg-left-n1) + var(--pg-num));
+  --pg-left-restant: calc(var(--pg-left-factn) + var(--pg-num));
+  --pg-del: 1.75rem;
+  --pg-left-del: calc(var(--pg-left-restant) + var(--pg-num));
+
   overflow: auto;
   max-width: 100%;
   max-height: calc(100vh - 7.5rem);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 0;
   background: var(--surface);
   margin-bottom: 0;
-  /* contexte d’empilement pour sticky titres / colonnes */
-  isolation: isolate;
+  -webkit-overflow-scrolling: touch;
 }
+
 table.planning-grid {
-  border: none;
-  border-radius: 0;
+  border: none !important;
+  border-radius: 0 !important;
   margin: 0;
   font-size: 0.78rem;
   width: max-content;
   min-width: 100%;
-  border-collapse: separate;
+  /* collapse + overflow:hidden sur table.data cassent sticky */
+  border-collapse: separate !important;
   border-spacing: 0;
+  overflow: visible !important;
+  background: transparent;
 }
 table.planning-grid th,
 table.planning-grid td {
-  padding: 0.35rem 0.4rem;
+  padding: 0.2rem 0.35rem;
   white-space: nowrap;
   border-bottom: 1px solid var(--line);
+  background-clip: padding-box;
+  vertical-align: middle !important; /* override table.data top */
+  line-height: 1.25;
+  height: 2rem;
 }
+
 /* Largeurs fixes → left sticky cohérents */
 table.planning-grid .col-ref {
-  min-width: 4.6rem;
-  width: 4.6rem;
-  max-width: 4.6rem;
+  min-width: var(--pg-ref);
+  width: var(--pg-ref);
+  max-width: var(--pg-ref);
 }
 table.planning-grid .col-ref .cell-input {
   font-size: 0.72rem;
-  padding: 0.25rem 0.25rem;
   letter-spacing: -0.01em;
 }
 table.planning-grid .col-client {
-  min-width: 8.2rem;
-  width: 8.2rem;
-  max-width: 8.2rem;
+  min-width: var(--pg-client);
+  width: var(--pg-client);
+  max-width: var(--pg-client);
   white-space: normal;
 }
 table.planning-grid .col-client .cell-input {
   font-size: 0.78rem;
-  padding: 0.25rem 0.3rem;
 }
 table.planning-grid .col-contrat,
 table.planning-grid .col-n1,
 table.planning-grid .col-factn,
-table.planning-grid .col-restant { min-width: 5.25rem; width: 5.25rem; }
+table.planning-grid .col-restant {
+  min-width: var(--pg-num);
+  width: var(--pg-num);
+}
 table.planning-grid .col-mois { min-width: 4.5rem; }
+table.planning-grid thead th.mois-courant {
+  box-shadow: inset 0 -3px 0 var(--vm-coral);
+  color: var(--vm-coral);
+}
+table.planning-grid td.mois-courant {
+  background: #faf7f7;
+}
 
-/* Ligne de titres figée (scroll vertical) */
+/* Ligne de titres figée (scroll vertical dans .planning-scroll) */
 table.planning-grid thead th {
   position: sticky;
   top: 0;
   z-index: 4;
   background: var(--vm-blue-soft);
   color: var(--vm-blue-dark);
-  box-shadow: 0 1px 0 var(--line);
-  /* opaque : le contenu ne transparait pas sous les titres */
-  background-clip: padding-box;
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 
-/* Colonnes figées jusqu’à « À facturer » — scroll horizontal des mois */
+/* Colonnes figées jusqu’à « À facturer » (scroll horizontal) */
 table.planning-grid .sticky-col {
   position: sticky;
   z-index: 2;
   background: #fff;
 }
 table.planning-grid thead th.sticky-col {
-  z-index: 6; /* coin titres × colonnes figées */
+  z-index: 7;
   background: var(--vm-blue-soft);
+  top: 0; /* titre + colonne */
 }
 table.planning-grid tfoot td.sticky-col {
   position: sticky;
-  z-index: 3;
+  z-index: 5;
   background: var(--vm-blue-soft);
+  bottom: 0;
 }
+
 table.planning-grid .col-ref { left: 0; }
-table.planning-grid .col-client { left: 4.6rem; }
-table.planning-grid .col-contrat { left: 12.8rem; }
-table.planning-grid .col-n1 { left: 18.05rem; }
-table.planning-grid .col-factn { left: 23.3rem; }
+table.planning-grid .col-client { left: var(--pg-left-client); }
+table.planning-grid .col-contrat { left: var(--pg-left-contrat); }
+table.planning-grid .col-n1 { left: var(--pg-left-n1); }
+table.planning-grid .col-factn { left: var(--pg-left-factn); }
 table.planning-grid .col-restant {
-  left: 28.55rem;
-  box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.18);
+  left: var(--pg-left-restant);
+}
+table.planning-grid .col-del {
+  left: var(--pg-left-del);
+  min-width: var(--pg-del);
+  width: var(--pg-del);
+  max-width: var(--pg-del);
+  text-align: center;
+  box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.22);
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+table.planning-grid .btn-del-ligne {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #e8b8bc;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--danger);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+table.planning-grid .btn-del-ligne:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
 }
 
 .planning-save-status {
@@ -560,20 +819,30 @@ table.planning-grid tr.row-save-error td {
 table.planning-grid .cell-input {
   background: #fff;
   color: var(--ink);
+  display: inline-block;
+  vertical-align: middle;
+  height: 1.65rem;
+  line-height: 1.55rem;
+  padding: 0 0.3rem;
+  box-sizing: border-box;
+  margin: 0;
+  font-size: 0.78rem;
 }
 table.planning-grid .pl-mois {
   background: #fff;
-  vertical-align: middle;
-  padding: 0.2rem 0.25rem;
+  vertical-align: middle !important;
+  padding: 0.15rem 0.2rem;
 }
 table.planning-grid .mois-edit {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: center;
+  justify-content: flex-end;
   gap: 0.2rem;
   min-width: 5.2rem;
+  height: 1.65rem;
   border-radius: 3px;
-  padding: 0.1rem;
+  padding: 0;
   background: transparent;
 }
 
@@ -582,17 +851,22 @@ table.planning-grid .cell-input.cell-mois {
   flex: 1 1 auto;
   width: 3.6rem;
   min-width: 3.2rem;
-  padding: 0.28rem 0.2rem;
+  height: 1.65rem;
+  line-height: 1.55rem;
+  padding: 0 0.2rem;
   font-size: 0.78rem;
   font-weight: 800;
   background: transparent;
   border-color: transparent;
+  text-align: right;
 }
 table.planning-grid .cell-statut {
   flex: 0 0 1.55rem;
   width: 1.55rem;
   min-width: 1.55rem;
-  padding: 0.15rem 0;
+  height: 1.65rem;
+  line-height: 1.55rem;
+  padding: 0;
   font-size: 0.72rem;
   font-weight: 800;
   text-align: center;
@@ -601,6 +875,9 @@ table.planning-grid .cell-statut {
   background: #fff;
   cursor: pointer;
   appearance: auto;
+  box-sizing: border-box;
+  margin: 0;
+  vertical-align: middle;
 }
 /* Couleur = texte uniquement (pas de fond de cellule) */
 table.planning-grid .txt-a_facturer,
@@ -611,6 +888,136 @@ table.planning-grid .txt-litige,
 table.planning-grid .txt-litige option { color: #c48a00 !important; }
 table.planning-grid .txt-paye,
 table.planning-grid .txt-paye option { color: #1565c0 !important; }
+
+/* Code couleur VRJB partagé (planning + factures) */
+.txt-a_facturer { color: #e01828; }
+.txt-facture { color: #0a8f4a; }
+.txt-litige { color: #c48a00; }
+.txt-paye { color: #1565c0; }
+.amt-coul { font-weight: 700; }
+
+table.factures-grid th {
+  background: var(--vm-blue-soft);
+  color: var(--vm-blue-dark);
+}
+table.factures-grid tr.row-coul-paye td:first-child {
+  box-shadow: inset 3px 0 0 #1565c0;
+}
+table.factures-grid tr.row-coul-facture td:first-child {
+  box-shadow: inset 3px 0 0 #0a8f4a;
+}
+table.factures-grid tr.row-coul-litige td:first-child {
+  box-shadow: inset 3px 0 0 #c48a00;
+}
+table.factures-grid tr.row-coul-a_facturer td:first-child {
+  box-shadow: inset 3px 0 0 #0a8f4a; /* plus de rouge : traité comme pas payé */
+}
+table.factures-grid tr.row-mar > td {
+  background: #fce8ec;
+}
+table.factures-grid tr.row-mar:hover > td {
+  background: #f8d5dc;
+}
+table.factures-grid td.facture-num {
+  white-space: nowrap;
+}
+table.factures-grid td.facture-num .facture-num-val {
+  white-space: nowrap;
+}
+.badge-mar {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #c62828;
+  background: #fce8e8;
+  border: 1px solid #ef9a9a;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.cell-tag-fac {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  min-width: 5.5rem;
+  max-width: 7.5rem;
+  padding: 0.2rem 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+}
+.factures-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.35rem;
+}
+.factures-top h1 { margin: 0; }
+
+/* Bleu sans facture cohérente */
+table.planning-grid td.alerte-facture {
+  outline: 2px solid var(--danger, #c62828);
+  outline-offset: -2px;
+  background: #fff5f5;
+}
+table.planning-grid td.alerte-facture .cell-mois,
+table.planning-grid .alerte-facture-input {
+  font-weight: 700 !important;
+  color: #b71c1c !important;
+}
+.leg-alerte-facture {
+  color: #b71c1c;
+  font-weight: 650;
+}
+.planning-alerte-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #b71c1c;
+  background: #fff5f5;
+  border: 1px solid #ef9a9a;
+  border-radius: 4px;
+}
+.planning-alerte-banner.is-ok {
+  color: #1b5e20;
+  background: #e8f5e9;
+  border-color: #a5d6a7;
+  font-weight: 600;
+}
+.planning-alerte-banner .muted { font-weight: 500; color: #6d4c41; }
+.planning-alerte-msg { flex: 1 1 auto; }
+.btn-valider-recoupements {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #c62828;
+  border-radius: 4px;
+  background: #fff;
+  color: #b71c1c;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-valider-recoupements:hover {
+  background: #ffebee;
+}
+.planning-alerte-banner.is-ok .btn-valider-recoupements { display: none; }
+
+table.planning-grid td.ecart-valide {
+  outline: 1px dashed #81c784;
+  outline-offset: -1px;
+}
 
 table.planning-grid .restant-zero { color: var(--ok); font-weight: 650; }
 table.planning-grid .restant-neg { color: var(--danger); font-weight: 650; }
@@ -623,16 +1030,12 @@ table.planning-grid tfoot td {
   z-index: 3;
   box-shadow: 0 -1px 0 var(--line);
 }
+table.planning-grid tfoot td.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
 table.planning-grid tfoot td.sticky-col { z-index: 5; }
-
-table.planning-grid tr.row-just-saved td {
-  outline: 2px solid var(--vm-blue);
-  outline-offset: -2px;
-  background: #f0f5f8;
-}
-table.planning-grid tr.row-just-saved td.sticky-col {
-  background: #f0f5f8;
-}
 
 /* Sections */
 table.planning-grid tr.row-section td {
@@ -641,11 +1044,378 @@ table.planning-grid tr.row-section td {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.4rem 0.55rem;
+  padding: 0.35rem 0.55rem;
   border-bottom: none;
+  height: auto;
+  vertical-align: middle !important;
 }
 table.planning-grid tr.row-section .sticky-col {
   background: var(--vm-blue-dark) !important;
   color: #fff !important;
   z-index: 2;
 }
+
+/* Récap CA (exercice en cours + RÉCAPITULATIF + légende) */
+.ca-recap {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(9.5rem, 0.7fr);
+  gap: 1rem 1.25rem;
+  align-items: stretch;
+  margin: 0 0 1.25rem;
+}
+.ca-recap-ex,
+.ca-recap-sum {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+}
+.ca-recap-ex .ca-recap-table,
+.ca-recap-sum .ca-recap-table {
+  flex: 1 1 auto;
+  width: 100%;
+}
+.ca-recap-legend,
+.legend-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
+  min-width: 0;
+}
+.ca-recap-legend .leg,
+.legend-stack .leg {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.55rem;
+}
+.ca-recap-rail {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  background: #f0f3f6;
+  color: var(--vm-blue-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  padding: 0.5rem 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.ca-recap-rail-sum {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--vm-blue-soft);
+}
+.ca-recap-table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.ca-recap-table th,
+.ca-recap-table td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid #eef1f4;
+  text-align: left;
+  font-weight: 500;
+}
+.ca-recap-table tr:last-child th,
+.ca-recap-table tr:last-child td { border-bottom: none; }
+.ca-recap-table th { color: var(--text); white-space: nowrap; }
+.ca-recap-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.ca-recap-impayes th,
+.ca-recap-impayes td {
+  color: #5b8fc7;
+  font-style: italic;
+  font-weight: 500;
+}
+.ca-recap-encaisse th,
+.ca-recap-encaisse td {
+  background: var(--vm-coral);
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-style: normal !important;
+  border-bottom: none;
+}
+.ca-recap-ht th,
+.ca-recap-ht td {
+  background: var(--vm-blue-dark);
+  color: #fff !important;
+  font-weight: 700 !important;
+  border-bottom: none;
+}
+.ca-recap-mar th,
+.ca-recap-mar td {
+  color: #c62828;
+  font-weight: 700;
+}
+.ca-recap-pct { min-width: 4.5rem; }
+.ca-recap-spacer td {
+  padding: 0.35rem;
+  border: none;
+  background: transparent;
+}
+@media (max-width: 900px) {
+  .ca-recap {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ca-recap-legend {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .ca-recap-legend .leg {
+    width: auto;
+  }
+}
+@media (max-width: 720px) {
+  .ca-recap { grid-template-columns: 1fr; }
+  .ca-recap-ex, .ca-recap-sum { width: 100%; }
+}
+/* Prévisionnel — ordre + couleurs feuille Excel */
+table.previsionnel-grid,
+table.previsionnel-synth {
+  font-size: 0.82rem;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+/* Même largeur à gauche du trait bleu (TRI+libellé+3 montants = label+2 montants) */
+table.previsionnel-grid .prev-col-tri { width: 11%; }
+table.previsionnel-grid .prev-col-lib { width: 25%; }
+table.previsionnel-grid .prev-col-amt { width: 12%; }
+table.previsionnel-synth .prev-col-synth-label { width: 36%; } /* 11+25 */
+table.previsionnel-synth .prev-col-amt { width: 18%; } /* (12×3)/2 */
+table.previsionnel-synth .prev-col-synth-reel { width: 24%; } /* 12+12 */
+table.previsionnel-grid .prev-col-gap,
+table.previsionnel-synth .prev-col-gap {
+  width: 0.16rem;
+}
+table.previsionnel-grid th,
+table.previsionnel-grid td,
+table.previsionnel-synth th,
+table.previsionnel-synth td {
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid #e8eef2;
+}
+.prev-gap {
+  width: 0.16rem;
+  min-width: 0.16rem;
+  max-width: 0.16rem;
+  padding: 0 !important;
+  background: #b8d7ed !important;
+  border: none !important;
+}
+.prev-code {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prev-head-titles th {
+  background: #fff;
+  border-bottom: 2px solid var(--line);
+}
+.prev-title-previ {
+  background: #ff5f5f !important;
+  color: #fff !important;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.prev-title-reel {
+  background: #567b96 !important;
+  color: #fff !important;
+}
+.prev-head-sub th {
+  background: var(--vm-blue-soft);
+  color: var(--vm-blue-dark);
+  font-size: 0.75rem;
+}
+.prev-net-mensuel {
+  margin-left: 0.35rem;
+  font-weight: 500;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+.prev-duree {
+  margin: 0.25rem 0 0.75rem;
+  max-width: 52rem;
+  line-height: 1.35;
+}
+.prev-badge-mensuel {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--vm-blue-dark);
+  background: var(--vm-blue-soft);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+table.previsionnel-grid input.prev-budget {
+  width: 6.5rem;
+  max-width: 100%;
+  text-align: right;
+  font: inherit;
+  font-weight: 650;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0.15rem 0.3rem;
+}
+table.previsionnel-grid input.prev-budget:hover,
+table.previsionnel-grid input.prev-budget:focus {
+  border-color: var(--line);
+  background: #fff;
+  outline: none;
+}
+table.previsionnel-grid input.prev-ttc {
+  font-weight: 700;
+}
+#prev-status {
+  min-height: 1.25rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+.prev-totaux td {
+  background: var(--vm-blue-soft);
+  font-weight: 650;
+}
+.prev-synth-title {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+  color: var(--vm-blue-dark);
+}
+.prev-objectif td {
+  background: #ffdddd;
+  color: #b71c1c;
+  font-weight: 700;
+}
+.prev-marge-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.prev-marge-input {
+  width: 3.5rem;
+  flex: 0 0 auto;
+  text-align: right;
+  font: inherit;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.15rem 0.3rem;
+  background: #fff;
+  color: var(--ink);
+}
+.prev-marge-unit {
+  flex: 0 0 auto;
+  font-weight: 650;
+}
+.prev-row.prev-marge td:not(.prev-gap) {
+  color: var(--ink);
+}
+
+/* Familles de couleur = police Excel Prévisionnel / Analytique */
+.prev-row.prev-salaire td:not(.prev-gap),
+table.analytique-grid tr.prev-salaire td { color: #e01828; }
+.prev-row.prev-bleu_gris td:not(.prev-gap),
+table.analytique-grid tr.prev-bleu_gris td { color: #567b96; }
+.prev-row.prev-vert td:not(.prev-gap),
+table.analytique-grid tr.prev-vert td { color: #5a9e28; }
+.prev-row.prev-orange td:not(.prev-gap),
+table.analytique-grid tr.prev-orange td { color: #d49200; }
+.prev-row.prev-cyan td:not(.prev-gap),
+table.analytique-grid tr.prev-cyan td { color: #0090c8; }
+.prev-row.prev-navy td:not(.prev-gap),
+table.analytique-grid tr.prev-navy td { color: #002060; }
+.prev-row.prev-vert_bureau td:not(.prev-gap),
+table.analytique-grid tr.prev-vert_bureau td { color: #00a050; }
+.prev-row.prev-violet td:not(.prev-gap),
+table.analytique-grid tr.prev-violet td { color: #7030a0; }
+.prev-row.prev-total td:not(.prev-gap) {
+  background: #e8eef2;
+  font-weight: 700;
+  color: var(--ink);
+}
+.prev-row.prev-extra td:not(.prev-gap),
+table.analytique-grid tr.prev-extra td {
+  color: var(--muted);
+  font-style: italic;
+}
+.prev-row.prev-neutre td:not(.prev-gap),
+table.analytique-grid tr.prev-neutre td { color: var(--ink); }
+
+
+/* Analytique TRI × mois */
+.analytique-scroll {
+  max-height: calc(100vh - 12rem);
+  margin-bottom: 1rem;
+}
+table.analytique-grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.78rem;
+}
+table.analytique-grid th,
+table.analytique-grid td {
+  padding: 0.35rem 0.45rem;
+  white-space: nowrap;
+}
+table.analytique-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--vm-blue-soft);
+  color: var(--vm-blue-dark);
+}
+table.analytique-grid .sticky-col {
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+}
+table.analytique-grid thead th.sticky-col {
+  z-index: 4;
+  background: var(--vm-blue-soft);
+}
+table.analytique-grid tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--vm-blue-soft);
+  font-weight: 650;
+}
+table.analytique-grid tfoot td.sticky-col { z-index: 3; }
+table.analytique-grid .col-tri { left: 0; min-width: 5.5rem; }
+table.analytique-grid .col-lib {
+  left: 5.5rem;
+  min-width: 10rem;
+  max-width: 14rem;
+  white-space: normal;
+  box-shadow: 4px 0 10px -4px rgba(0, 0, 0, 0.18);
+}
+

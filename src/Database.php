@@ -64,6 +64,51 @@ final class Database
             $pdo->exec('ALTER TABLE affaires ADD COLUMN fini INTEGER NOT NULL DEFAULT 0');
         }
         self::dropAffairesReferenceUnique($pdo);
+
+        $exCols = array_column($pdo->query('PRAGMA table_info(exercices)')->fetchAll(), 'name');
+        if (!in_array('objectif_ca_ht', $exCols, true)) {
+            $pdo->exec('ALTER TABLE exercices ADD COLUMN objectif_ca_ht REAL');
+        }
+        if (!in_array('marge_pct', $exCols, true)) {
+            // Marge prévisionnelle en % (ex. 5 = 5 %) — Excel : OBJECTIF = total × (1 + marge)
+            $pdo->exec('ALTER TABLE exercices ADD COLUMN marge_pct REAL NOT NULL DEFAULT 0');
+        }
+        if (!in_array('previ_mois', $exCols, true)) {
+            // Base mensuelle des budgets récurrents (12 à l’import Excel ; 18 après transposition N5)
+            $pdo->exec('ALTER TABLE exercices ADD COLUMN previ_mois INTEGER NOT NULL DEFAULT 12');
+        }
+        // Objectifs CA HT issus du Prévisionnel Excel (feuille OBJECTIF CA HT)
+        $pdo->exec("UPDATE exercices SET objectif_ca_ht = 91760 WHERE code = 'N4' AND objectif_ca_ht IS NULL");
+        $pdo->exec("UPDATE exercices SET objectif_ca_ht = 109561.65 WHERE code = 'N5' AND objectif_ca_ht IS NULL");
+
+        $echCols = array_column($pdo->query('PRAGMA table_info(echeances_facturation)')->fetchAll(), 'name');
+        if (!in_array('ecart_ok', $echCols, true)) {
+            $pdo->exec('ALTER TABLE echeances_facturation ADD COLUMN ecart_ok INTEGER NOT NULL DEFAULT 0');
+        }
+
+        $facCols = array_column($pdo->query('PRAGMA table_info(factures)')->fetchAll(), 'name');
+        if (!in_array('statut_paiement', $facCols, true)) {
+            // NULL = auto (lié au planning) · paye | facture | litige = forcé à la main
+            $pdo->exec('ALTER TABLE factures ADD COLUMN statut_paiement TEXT');
+        }
+        if (!in_array('est_mar', $facCols, true)) {
+            // NULL = auto · 0/1 = forcé à la main
+            $pdo->exec('ALTER TABLE factures ADD COLUMN est_mar INTEGER');
+        }
+
+        $impCols = array_column($pdo->query('PRAGMA table_info(imports)')->fetchAll(), 'name');
+        if (!in_array('solde_initial', $impCols, true)) {
+            $pdo->exec('ALTER TABLE imports ADD COLUMN solde_initial REAL');
+        }
+        if (!in_array('solde_final', $impCols, true)) {
+            $pdo->exec('ALTER TABLE imports ADD COLUMN solde_final REAL');
+        }
+        if (!in_array('ecart_solde', $impCols, true)) {
+            $pdo->exec('ALTER TABLE imports ADD COLUMN ecart_solde REAL');
+        }
+        if (!in_array('controle_json', $impCols, true)) {
+            $pdo->exec('ALTER TABLE imports ADD COLUMN controle_json TEXT');
+        }
     }
 
     /**

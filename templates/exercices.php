@@ -13,17 +13,18 @@ ob_start();
 
 <table class="data">
   <thead>
-    <tr><th>Code</th><th>Libellé</th><th>Début</th><th>Fin</th><th>En cours</th></tr>
+    <tr><th>Code</th><th>Libellé</th><th>Début</th><th>Fin</th><th class="num">Objectif CA HT</th><th>En cours</th></tr>
   </thead>
   <tbody>
   <?php if (!$exercices): ?>
-    <tr><td colspan="5" class="muted">Aucun exercice. Lancez <code>php scripts/init_db.php</code>.</td></tr>
+    <tr><td colspan="6" class="muted">Aucun exercice. Lancez <code>php scripts/init_db.php</code>.</td></tr>
   <?php else: foreach ($exercices as $ex): ?>
     <tr>
       <td><?= e($ex['code']) ?></td>
       <td><?= e($ex['libelle']) ?></td>
       <td><?= date_fr($ex['date_debut']) ?></td>
       <td><?= date_fr($ex['date_fin']) ?></td>
+      <td class="num"><?= isset($ex['objectif_ca_ht']) && $ex['objectif_ca_ht'] !== null ? euro((float) $ex['objectif_ca_ht']) : '—' ?></td>
       <td><?= (int) $ex['actif'] === 1 ? 'Oui' : '' ?></td>
     </tr>
   <?php endforeach; endif; ?>
