@@ -1,0 +1,2 @@
+# Racine web = ce dossier (document root Web Station)
+DirectoryIndex index.php

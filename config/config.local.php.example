@@ -1,0 +1,22 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Copier ce fichier vers config.local.php et adapter.
+ * config.local.php n’est pas versionné (secrets / chemins machine).
+ */
+
+return [
+    // 'app_env' => 'nas',
+    // 'db' => [
+    //     'driver' => 'mysql',
+    //     'mysql' => [
+    //         'host' => '127.0.0.1',
+    //         'port' => 3306,
+    //         'dbname' => 'voletmat_gestion',
+    //         'user' => 'voletmat_gestion',
+    //         'password' => 'MOT_DE_PASSE_DEDIE',
+    //         'charset' => 'utf8mb4',
+    //     ],
+    // ],
+];

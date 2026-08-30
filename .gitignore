@@ -1,0 +1,11 @@
+config/config.local.php
+storage/data/*.sqlite
+storage/data/*.sqlite-*
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/backups/*
+!storage/backups/.gitkeep
+.DS_Store
+~$*.xlsm
+~$*.xlsx
+*.tmp
