@@ -12,7 +12,6 @@ $nav = [
     'previsionnel' => 'Prévisionnel',
     'banque' => 'Banque',
     'analytique' => 'Analytique',
-    'exercices' => 'Exercices',
     'export' => 'Export',
 ];
 $exerciceHeader = null;

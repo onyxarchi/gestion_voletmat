@@ -193,9 +193,8 @@
     }
 
     assign1(0, true);
-    assign1(0, false);
 
-    // Sous-ensembles même mois
+    // Sous-ensembles même mois (montant + client)
     var byM = {};
     cells.forEach(function (c, i) {
       if (matched[c.key]) return;
@@ -203,7 +202,10 @@
     });
     factures.forEach(function (f) {
       if (used[f.id]) return;
-      var idxs = (byM[f.ym] || []).filter(function (i) { return !matched[cells[i].key]; });
+      var idxs = (byM[f.ym] || []).filter(function (i) {
+        if (matched[cells[i].key]) return false;
+        return clientsOverlap(cells[i].client, f.client || '');
+      });
       if (idxs.length < 2) return;
       var items = idxs.map(function (i) { return cells[i]; });
       var comb = findSubsetJs(items, Number(f.ht));
@@ -215,7 +217,6 @@
     });
 
     assign1(1, true);
-    assign1(1, false);
 
     var nAlert = 0;
     var nValide = 0;
@@ -431,9 +432,14 @@
       tr.classList.add('row-saving');
       setStatus('Enregistrement…', 'saving');
 
+      var fd = collectFormData(tr);
+      var sentRef = '';
+      var refBefore = tr.querySelector('[name="reference"]');
+      if (refBefore) sentRef = refBefore.value;
+
       fetch(saveUrl, {
         method: 'POST',
-        body: collectFormData(tr),
+        body: fd,
         headers: { Accept: 'application/json' },
         signal: ctrl.signal,
         credentials: 'same-origin',
@@ -463,8 +469,28 @@
             if (r != null && Math.abs(r) < 0.005) restCell.classList.add('restant-zero');
             else if (r != null && r < 0) restCell.classList.add('restant-neg');
           }
+          // Ne réécrire la référence que pour la normalisation (vide → Divers),
+          // et seulement si l’utilisateur n’a pas modifié le champ entre-temps.
           var refInput = tr.querySelector('[name="reference"]');
-          if (refInput && res.data.reference) refInput.value = res.data.reference;
+          if (refInput && res.data.reference && document.activeElement !== refInput) {
+            var cur = refInput.value;
+            if (cur.trim() === '' || cur === sentRef) {
+              refInput.value = res.data.reference;
+            }
+          }
+          // Reclasser seulement à la validation (blur / select), pas pendant la saisie
+          if (res.data.groupe) {
+            var oldGroupe = tr.getAttribute('data-groupe') || '';
+            if (immediate && oldGroupe && oldGroupe !== res.data.groupe) {
+              setStatus('Reclassement…', 'saving');
+              window.location.href = saveUrl.replace(/#.*$/, '') +
+                (saveUrl.indexOf('?') >= 0 ? '&' : '?') + 'moved=1#row-' + id;
+              return;
+            }
+            if (!oldGroupe || oldGroupe === res.data.groupe) {
+              tr.setAttribute('data-groupe', res.data.groupe);
+            }
+          }
           normalizeAmountFields(tr);
           updateFooters();
           setStatus('Enregistré', 'ok');

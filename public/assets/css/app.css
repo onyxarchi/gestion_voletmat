@@ -1107,6 +1107,57 @@ table.factures-grid th {
   background: var(--vm-blue-soft);
   color: var(--vm-blue-dark);
 }
+table.factures-grid td.factures-actions {
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
+  width: 3.2rem;
+}
+table.factures-grid .btn-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  margin: 0 0.05rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  color: var(--muted);
+}
+table.factures-grid .btn-ico:hover {
+  background: transparent;
+  color: var(--vm-blue-dark);
+}
+table.factures-grid .btn-edit-ligne:hover,
+table.factures-grid .btn-save-ligne:hover {
+  color: var(--vm-blue);
+}
+table.factures-grid .btn-del-ligne {
+  color: var(--danger);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+table.factures-grid .btn-del-ligne:hover {
+  color: var(--danger);
+  opacity: 0.85;
+}
+table.factures-grid .btn-cancel-ligne:hover {
+  color: var(--danger);
+}
+table.factures-grid .btn-ico:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+table.factures-grid tr.row-editing td {
+  background: #f3f8fb;
+}
 table.factures-grid tr.row-coul-paye td:first-child {
   box-shadow: inset 3px 0 0 #1565c0;
 }

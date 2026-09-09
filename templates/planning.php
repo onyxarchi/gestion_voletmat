@@ -124,7 +124,7 @@ if ($moisKeys) {
       $contratVal = $ligne['montant_contrat_ht'];
       $contratStr = $contratVal === null ? '' : number_format((float) $contratVal, 2, ',', ' ') . ' €';
     ?>
-      <tr id="<?= e($rowId) ?>" data-affaire-id="<?= $aid ?>"<?= $rowClassAttr ?>>
+      <tr id="<?= e($rowId) ?>" data-affaire-id="<?= $aid ?>" data-groupe="<?= e($groupe) ?>"<?= $rowClassAttr ?>>
         <td class="sticky-col col-ref">
           <input class="cell-input" type="text" name="reference"
                  value="<?= e((string) ($ligne['reference'] ?? '')) ?>" autocomplete="off">

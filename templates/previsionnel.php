@@ -269,7 +269,7 @@ $fmtPct = static function (float $n): string {
     };
   }
 
-  function syncTtcFromParts(tr, field) {
+  function syncTtcFromParts(tr, field, live) {
     var r = readRow(tr);
     var avecTva = tr.getAttribute('data-avec-tva') === '1';
     var ht; var tva; var ttc;
@@ -293,9 +293,14 @@ $fmtPct = static function (float $n): string {
         ttc = ht;
       }
     }
-    setAmountText(r.htEl, formatAmountInput(ht));
+    // En saisie live : ne pas réécrire le champ en cours (sinon « 1 » → « 1,00 € » et curseur cassé)
+    if (!live || field !== 'ht') {
+      setAmountText(r.htEl, formatAmountInput(ht));
+    }
     setAmountText(r.tvaEl, formatAmountInput(tva));
-    setAmountText(r.ttcEl, formatAmountInput(ttc));
+    if (!live || field !== 'ttc') {
+      setAmountText(r.ttcEl, formatAmountInput(ttc));
+    }
   }
 
   function updateEcart(tr, ttc) {
@@ -447,7 +452,16 @@ $fmtPct = static function (float $n): string {
     if (!(t instanceof HTMLInputElement) || !t.matches('.prev-budget')) return;
     var tr = t.closest('tr[data-code]');
     if (!tr) return;
-    syncTtcFromParts(tr, t.getAttribute('data-field') || 'ht');
+    syncTtcFromParts(tr, t.getAttribute('data-field') || 'ht', true);
+  });
+
+  grid.addEventListener('focusin', function (ev) {
+    var t = ev.target;
+    if (!(t instanceof HTMLInputElement) || !t.matches('.prev-budget')) return;
+    // Valeur brute pour saisie (sans € / espaces)
+    var n = parseFr(t.value);
+    t.value = n === 0 ? '' : String(n).replace('.', ',');
+    try { t.select(); } catch (e) {}
   });
 
   grid.addEventListener('blur', function (ev) {

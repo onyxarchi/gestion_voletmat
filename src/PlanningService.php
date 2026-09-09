@@ -38,8 +38,8 @@ final class PlanningService
         $st = $this->pdo->prepare(
             'SELECT id, reference, client, type, montant_contrat_ht, encaisse_n1, COALESCE(fini, 0) AS fini
              FROM affaires WHERE exercice_id = ? ORDER BY
-               CASE type WHEN \'contrat\' THEN 1 WHEN \'mission\' THEN 2 WHEN \'stripe\' THEN 3 WHEN \'pv\' THEN 4 ELSE 5 END,
-               reference COLLATE NOCASE, client COLLATE NOCASE'
+               CASE type WHEN \'autre\' THEN 0 WHEN \'contrat\' THEN 1 WHEN \'mission\' THEN 2 WHEN \'stripe\' THEN 3 WHEN \'pv\' THEN 4 ELSE 5 END,
+               id DESC'
         );
         $st->execute([$exerciceId]);
         $affaires = $st->fetchAll();
@@ -141,6 +141,10 @@ final class PlanningService
             $ob = self::groupeOrdre($b['groupe']);
             if ($oa !== $ob) {
                 return $oa <=> $ob;
+            }
+            // Divers : plus récentes en premier (nouvelles lignes en haut)
+            if (($a['groupe'] ?? '') === 'divers') {
+                return $b['id'] <=> $a['id'];
             }
             $ra = (string) ($a['reference'] ?? '');
             $rb = (string) ($b['reference'] ?? '');
@@ -386,8 +390,10 @@ final class PlanningService
                 if ($diff === null || $diff > 1) {
                     continue;
                 }
-                $ov = $this->clientsOverlap($f['client'], $c['client']);
-                $score = (100 - $diff * 20) + ($ov ? 40 : 0);
+                if (!$this->clientsOverlap($f['client'], $c['client'])) {
+                    continue;
+                }
+                $score = 100 - $diff * 20;
                 if ($c['statut'] === 'paye') {
                     $score += 15;
                 } elseif ($c['statut'] === 'litige') {
@@ -470,8 +476,10 @@ final class PlanningService
                 if ($diff === null || $diff > 1) {
                     continue;
                 }
-                $ov = $this->clientsOverlap($f['client'], $c['client']);
-                $score = (100 - $diff * 20) + ($ov ? 40 : 0);
+                if (!$this->clientsOverlap($f['client'], $c['client'])) {
+                    continue;
+                }
+                $score = 100 - $diff * 20;
                 if ($c['groupe'] === 'mar') {
                     $score += 5;
                 }
@@ -592,11 +600,10 @@ final class PlanningService
         $usedFact = [];
         $factureAffaires = [];
         if ($cells !== []) {
+            // Toujours montant + client (pas de match sur le montant seul)
             $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 0, true);
-            $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 0, false);
             $this->assignPayeSousEnsembles($cells, $factures, $matched, $usedFact, $factureAffaires);
             $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 1, true);
-            $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 1, false);
         }
 
         $alertes = [];
@@ -699,9 +706,14 @@ final class PlanningService
             }
             $idxs = [];
             foreach ($byMonth[$ym] as $i) {
-                if (!isset($matched[$cells[$i]['key']])) {
-                    $idxs[] = $i;
+                if (isset($matched[$cells[$i]['key']])) {
+                    continue;
                 }
+                // Même règle : montant (via sous-ensemble) + client
+                if (!$this->clientsOverlap((string) $f['client'], $cells[$i]['client'])) {
+                    continue;
+                }
+                $idxs[] = $i;
             }
             if (count($idxs) < 2) {
                 continue;
@@ -819,7 +831,7 @@ final class PlanningService
         return $out;
     }
 
-    /** Groupe d’affichage : Archi · MAR · STRIPE · PV · divers. */
+    /** Groupe d’affichage : Divers (nouvelles lignes) · Archi · MAR · STRIPE · PV. */
     public static function groupeAffaire(string $type, mixed $reference, bool $isMar = false): string
     {
         $ref = strtoupper(trim((string) $reference));
@@ -841,11 +853,11 @@ final class PlanningService
     public static function groupeOrdre(string $groupe): int
     {
         return match ($groupe) {
+            'divers' => 0,
             'contrat' => 1,
             'mar' => 2,
             'stripe' => 3,
             'pv' => 4,
-            'divers' => 5,
             default => 9,
         };
     }

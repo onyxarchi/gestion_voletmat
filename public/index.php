@@ -196,6 +196,156 @@ switch ($page) {
                 }
                 redirect('factures');
             }
+
+            if ($action === 'maj_facture') {
+                $ajax = wants_json();
+                $fid = (int) ($_POST['facture_id'] ?? 0);
+                $eid = (int) $exercice['id'];
+                $st = $pdo->prepare('SELECT id FROM factures WHERE id = ? AND exercice_id = ?');
+                $st->execute([$fid, $eid]);
+                if (!$st->fetch()) {
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => 'Facture introuvable.'], 404);
+                    }
+                    flash('erreur', 'Facture introuvable.');
+                    redirect('factures');
+                }
+
+                $numero = trim((string) ($_POST['numero'] ?? ''));
+                $date = trim((string) ($_POST['date_facture'] ?? ''));
+                $client = trim((string) ($_POST['client'] ?? ''));
+                $htRaw = str_replace(
+                    [' ', ',', "\xc2\xa0", "\xe2\x80\xaf", '€'],
+                    ['', '.', '', '', ''],
+                    trim((string) ($_POST['ht'] ?? '0'))
+                );
+                $tauxRaw = str_replace(
+                    [' ', ',', "\xc2\xa0", "\xe2\x80\xaf"],
+                    ['', '.', '', ''],
+                    trim((string) ($_POST['taux_tva'] ?? '20'))
+                );
+                $tag = strtolower(trim((string) ($_POST['tag'] ?? '')));
+                $canal = null;
+                $estMar = 0;
+                if ($tag === 'mar') {
+                    $estMar = 1;
+                } elseif ($tag === 'stripe') {
+                    $canal = 'Stripe';
+                }
+
+                $ht = is_numeric($htRaw) ? (float) $htRaw : null;
+                $tauxPct = is_numeric($tauxRaw) ? (float) $tauxRaw : null;
+                $okDate = (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $date);
+
+                if ($numero === '' || $client === '' || !$okDate || $ht === null || $tauxPct === null) {
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => 'Saisie incomplète.'], 422);
+                    }
+                    flash('erreur', 'Saisie incomplète.');
+                    redirect('factures');
+                }
+
+                $taux = $tauxPct / 100.0;
+                $tva = round($ht * $taux, 2);
+                $ttc = round($ht + $tva, 2);
+
+                try {
+                    $pdo->prepare(
+                        'UPDATE factures
+                         SET numero = ?, date_facture = ?, client = ?, ht = ?, taux_tva = ?, tva = ?, ttc = ?,
+                             canal = ?, est_mar = ?
+                         WHERE id = ? AND exercice_id = ?'
+                    )->execute([
+                        $numero,
+                        $date,
+                        $client,
+                        $ht,
+                        $taux,
+                        $tva,
+                        $ttc,
+                        $canal,
+                        $estMar,
+                        $fid,
+                        $eid,
+                    ]);
+                } catch (PDOException $e) {
+                    $msg = str_contains($e->getMessage(), 'UNIQUE')
+                        ? 'Ce n° de facture existe déjà pour cet exercice.'
+                        : 'Mise à jour impossible.';
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => $msg], 500);
+                    }
+                    flash('erreur', $msg);
+                    redirect('factures');
+                }
+
+                if ($ajax) {
+                    $meta = (new PlanningService($pdo))->metaFactures($eid);
+                    $recap = (new CaService($pdo))->dashboard($eid)['recap'] ?? null;
+                    $m = $meta[$fid] ?? ['statut' => 'facture', 'mar' => (bool) $estMar];
+                    json_out([
+                        'ok' => true,
+                        'facture_id' => $fid,
+                        'facture' => [
+                            'numero' => $numero,
+                            'date_facture' => $date,
+                            'date_fr' => date_fr($date),
+                            'client' => $client,
+                            'ht' => $ht,
+                            'ht_label' => euro($ht),
+                            'taux_tva' => $taux,
+                            'taux_pct' => (int) round($tauxPct),
+                            'tva' => $tva,
+                            'tva_label' => euro($tva),
+                            'ttc' => $ttc,
+                            'ttc_label' => euro($ttc),
+                            'tag' => $tag,
+                        ],
+                        'meta' => $m,
+                        'recap' => $recap,
+                    ]);
+                }
+                flash('ok', 'Facture ' . $numero . ' mise à jour.');
+                redirect('factures');
+            }
+
+            if ($action === 'suppr_facture') {
+                $ajax = wants_json();
+                $fid = (int) ($_POST['facture_id'] ?? 0);
+                $eid = (int) $exercice['id'];
+                $st = $pdo->prepare(
+                    'SELECT id, numero, client FROM factures WHERE id = ? AND exercice_id = ?'
+                );
+                $st->execute([$fid, $eid]);
+                $row = $st->fetch();
+                if (!$row) {
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => 'Facture introuvable.'], 404);
+                    }
+                    flash('erreur', 'Facture introuvable.');
+                    redirect('factures');
+                }
+                try {
+                    $pdo->prepare('DELETE FROM factures WHERE id = ? AND exercice_id = ?')
+                        ->execute([$fid, $eid]);
+                } catch (PDOException) {
+                    if ($ajax) {
+                        json_out(['ok' => false, 'erreur' => 'Suppression impossible.'], 500);
+                    }
+                    flash('erreur', 'Suppression impossible.');
+                    redirect('factures');
+                }
+                if ($ajax) {
+                    $recap = (new CaService($pdo))->dashboard($eid)['recap'] ?? null;
+                    json_out([
+                        'ok' => true,
+                        'facture_id' => $fid,
+                        'recap' => $recap,
+                    ]);
+                }
+                flash('ok', 'Facture ' . (string) $row['numero'] . ' supprimée.');
+                redirect('factures');
+            }
         }
 
         $metaFactures = [];
@@ -1148,6 +1298,7 @@ switch ($page) {
                         'ok' => true,
                         'affaire_id' => $affaireId,
                         'reference' => $reference,
+                        'groupe' => PlanningService::groupeAffaire($type, $reference),
                         'facture_en_n' => $factureEnN,
                         'facture_en_n_label' => euro($factureEnN),
                         'restant_a_facturer' => $restant,

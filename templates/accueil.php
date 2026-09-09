@@ -40,7 +40,7 @@ $evoLabel = $evo === null ? '—' : (($evo >= 0 ? '+' : '') . number_format($evo
     (<?= date_fr($exercice['date_debut']) ?> → <?= date_fr($exercice['date_fin']) ?>)
   </p>
 <?php else: ?>
-  <p class="lead">Aucun exercice pour la date du jour. Voir <a href="<?= e(page_url('exercices')) ?>">Exercices</a>.</p>
+  <p class="lead">Aucun exercice pour la date du jour.</p>
 <?php endif; ?>
 
 <div class="cards">

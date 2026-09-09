@@ -26,7 +26,7 @@ $saveUrl = page_url('factures');
   <h1>Facturation</h1>
 </div>
 <?php if (!$exercice): ?>
-  <p class="lead">Aucun exercice pour la date du jour. Voir <a href="<?= e(page_url('exercices')) ?>">Exercices</a>.</p>
+  <p class="lead">Aucun exercice pour la date du jour.</p>
 <?php endif; ?>
 
 <?php if (!$exercice): ?>
@@ -174,25 +174,37 @@ $saveUrl = page_url('factures');
           default => 'Pas encore payé (planning)',
       };
       $rowClass = 'row-coul-' . $coul . ($isMar ? ' row-mar' : '');
+      $tauxPct = (int) round((float) $f['taux_tva'] * 100);
   ?>
-    <tr class="<?= e($rowClass) ?>" data-facture-id="<?= $fid ?>" title="<?= e($titreCoul . ($isMar ? ' · MAR' : '')) ?>">
-      <td><?= date_fr($f['date_facture']) ?></td>
-      <td class="facture-num">
+    <tr class="<?= e($rowClass) ?>"
+        data-facture-id="<?= $fid ?>"
+        data-date="<?= e((string) $f['date_facture']) ?>"
+        data-numero="<?= e((string) $f['numero']) ?>"
+        data-client="<?= e((string) $f['client']) ?>"
+        data-ht="<?= e(number_format($ht, 2, '.', '')) ?>"
+        data-taux="<?= $tauxPct ?>"
+        data-tag="<?= e($tagSelect) ?>"
+        title="<?= e($titreCoul . ($isMar ? ' · MAR' : '')) ?>">
+      <td data-col="date"><?= date_fr($f['date_facture']) ?></td>
+      <td class="facture-num" data-col="numero">
         <span class="facture-num-val"><?= e($f['numero']) ?></span>
       </td>
-      <td><?= e($f['client']) ?></td>
-      <td class="num txt-<?= e($coul) ?> amt-coul"><?= euro($ht) ?></td>
-      <td class="num muted"><?= number_format((float) $f['taux_tva'] * 100, 0, ',', ' ') ?> %</td>
-      <td class="num txt-<?= e($coul) ?>"><?= euro((float) $f['tva']) ?></td>
-      <td class="num txt-<?= e($coul) ?> amt-coul"><?= euro((float) $f['ttc']) ?></td>
-      <td>
+      <td data-col="client"><?= e($f['client']) ?></td>
+      <td class="num txt-<?= e($coul) ?> amt-coul" data-col="ht"><?= euro($ht) ?></td>
+      <td class="num muted" data-col="taux"><?= $tauxPct ?> %</td>
+      <td class="num txt-<?= e($coul) ?>" data-col="tva"><?= euro((float) $f['tva']) ?></td>
+      <td class="num txt-<?= e($coul) ?> amt-coul" data-col="ttc"><?= euro((float) $f['ttc']) ?></td>
+      <td data-col="tag">
         <select class="cell-tag-fac" data-field="tag" aria-label="Type">
           <option value="mar" <?= $tagSelect === 'mar' ? 'selected' : '' ?>>MAR</option>
           <option value="stripe" <?= $tagSelect === 'stripe' ? 'selected' : '' ?>>STRIPE</option>
           <option value="" <?= $tagSelect === '' ? 'selected' : '' ?>>—</option>
         </select>
       </td>
-      <td></td>
+      <td class="factures-actions">
+        <button type="button" class="btn-ico btn-edit-ligne" title="Modifier" aria-label="Modifier">✎</button>
+        <button type="button" class="btn-ico btn-del-ligne" title="Supprimer" aria-label="Supprimer">×</button>
+      </td>
     </tr>
   <?php endforeach; endif; ?>
   </tbody>
@@ -255,9 +267,15 @@ $saveUrl = page_url('factures');
   if (!grid) return;
   var saveUrl = grid.getAttribute('data-save-url') || '';
   var csrf = grid.getAttribute('data-csrf') || '';
+  var editingTr = null;
 
   function applyMar(tr, isMar) {
     tr.classList.toggle('row-mar', !!isMar);
+  }
+
+  function coulClass(tr) {
+    var m = (tr.className || '').match(/row-coul-(\w+)/);
+    return m ? m[1] : 'facture';
   }
 
   function euroDash(n) {
@@ -295,6 +313,212 @@ $saveUrl = page_url('factures');
     });
   }
 
+  function tagOptionsHtml(selected) {
+    return '<option value="mar"' + (selected === 'mar' ? ' selected' : '') + '>MAR</option>' +
+      '<option value="stripe"' + (selected === 'stripe' ? ' selected' : '') + '>STRIPE</option>' +
+      '<option value=""' + (selected === '' ? ' selected' : '') + '>—</option>';
+  }
+
+  function refreshEditPreview(tr) {
+    var htInp = tr.querySelector('[data-edit="ht"]');
+    var tauxInp = tr.querySelector('[data-edit="taux"]');
+    var tvaCell = tr.querySelector('[data-col="tva"]');
+    var ttcCell = tr.querySelector('[data-col="ttc"]');
+    if (!htInp || !tauxInp || !tvaCell || !ttcCell) return;
+    var ht = parseFr(htInp.value);
+    var taux = parseFr(tauxInp.value);
+    if (ht === null || taux === null) {
+      tvaCell.textContent = '—';
+      ttcCell.textContent = '—';
+      return;
+    }
+    var tva = Math.round(ht * (taux / 100) * 100) / 100;
+    tvaCell.textContent = euro(tva);
+    ttcCell.textContent = euro(Math.round((ht + tva) * 100) / 100);
+  }
+
+  function renderView(tr, f, meta) {
+    var coul = (meta && meta.statut) || coulClass(tr);
+    if (!in_array_coul(coul)) coul = 'facture';
+    var isMar = !!(meta && meta.mar);
+    var tag = (f && f.tag != null) ? f.tag : (tr.getAttribute('data-tag') || '');
+    tr.className = 'row-coul-' + coul + (isMar ? ' row-mar' : '');
+    tr.setAttribute('data-date', f.date_facture);
+    tr.setAttribute('data-numero', f.numero);
+    tr.setAttribute('data-client', f.client);
+    tr.setAttribute('data-ht', String(f.ht));
+    tr.setAttribute('data-taux', String(f.taux_pct));
+    tr.setAttribute('data-tag', tag);
+
+    tr.querySelector('[data-col="date"]').textContent = f.date_fr;
+    tr.querySelector('[data-col="numero"]').innerHTML =
+      '<span class="facture-num-val">' + escapeHtml(f.numero) + '</span>';
+    tr.querySelector('[data-col="client"]').textContent = f.client;
+    var htCell = tr.querySelector('[data-col="ht"]');
+    htCell.className = 'num txt-' + coul + ' amt-coul';
+    htCell.setAttribute('data-col', 'ht');
+    htCell.textContent = f.ht_label;
+    tr.querySelector('[data-col="taux"]').textContent = f.taux_pct + ' %';
+    var tvaCell = tr.querySelector('[data-col="tva"]');
+    tvaCell.className = 'num txt-' + coul;
+    tvaCell.setAttribute('data-col', 'tva');
+    tvaCell.textContent = f.tva_label;
+    var ttcCell = tr.querySelector('[data-col="ttc"]');
+    ttcCell.className = 'num txt-' + coul + ' amt-coul';
+    ttcCell.setAttribute('data-col', 'ttc');
+    ttcCell.textContent = f.ttc_label;
+    tr.querySelector('[data-col="tag"]').innerHTML =
+      '<select class="cell-tag-fac" data-field="tag" aria-label="Type">' +
+      tagOptionsHtml(tag) + '</select>';
+    tr.querySelector('.factures-actions').innerHTML =
+      '<button type="button" class="btn-ico btn-edit-ligne" title="Modifier" aria-label="Modifier">✎</button>' +
+      '<button type="button" class="btn-ico btn-del-ligne" title="Supprimer" aria-label="Supprimer">×</button>';
+  }
+
+  function in_array_coul(c) {
+    return c === 'facture' || c === 'litige' || c === 'paye';
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function cancelEdit(tr) {
+    if (!tr || !tr.classList.contains('row-editing')) return;
+    var f = {
+      date_facture: tr.getAttribute('data-date') || '',
+      date_fr: formatDateFr(tr.getAttribute('data-date') || ''),
+      numero: tr.getAttribute('data-numero') || '',
+      client: tr.getAttribute('data-client') || '',
+      ht: parseFloat(tr.getAttribute('data-ht') || '0') || 0,
+      ht_label: euro(parseFloat(tr.getAttribute('data-ht') || '0') || 0),
+      taux_pct: parseInt(tr.getAttribute('data-taux') || '20', 10) || 20,
+      tva_label: tr.querySelector('[data-col="tva"]') ? '' : '',
+      ttc_label: '',
+      tag: tr.getAttribute('data-tag') || '',
+    };
+    var ht = f.ht;
+    var taux = f.taux_pct;
+    var tva = Math.round(ht * (taux / 100) * 100) / 100;
+    f.tva_label = euro(tva);
+    f.ttc_label = euro(Math.round((ht + tva) * 100) / 100);
+    tr.classList.remove('row-editing');
+    if (editingTr === tr) editingTr = null;
+    renderView(tr, f, { statut: coulClass(tr), mar: tr.classList.contains('row-mar') });
+  }
+
+  function formatDateFr(iso) {
+    if (!iso || iso.length < 10) return iso || '';
+    return iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+  }
+
+  function enterEdit(tr) {
+    if (editingTr && editingTr !== tr) cancelEdit(editingTr);
+    if (tr.classList.contains('row-editing')) return;
+    editingTr = tr;
+    tr.classList.add('row-editing');
+    var date = tr.getAttribute('data-date') || '';
+    var numero = tr.getAttribute('data-numero') || '';
+    var client = tr.getAttribute('data-client') || '';
+    var ht = tr.getAttribute('data-ht') || '';
+    var taux = tr.getAttribute('data-taux') || '20';
+    var tag = tr.getAttribute('data-tag') || '';
+
+    tr.querySelector('[data-col="date"]').innerHTML =
+      '<input class="cell-input" type="date" data-edit="date" value="' + escapeHtml(date) + '">';
+    tr.querySelector('[data-col="numero"]').innerHTML =
+      '<input class="cell-input" type="text" data-edit="numero" value="' + escapeHtml(numero) + '" autocomplete="off">';
+    tr.querySelector('[data-col="client"]').innerHTML =
+      '<input class="cell-input" type="text" data-edit="client" value="' + escapeHtml(client) + '" autocomplete="organization">';
+    var htCell = tr.querySelector('[data-col="ht"]');
+    htCell.className = 'num';
+    htCell.setAttribute('data-col', 'ht');
+    htCell.innerHTML =
+      '<input class="cell-input num" type="text" data-edit="ht" value="' +
+      escapeHtml(formatAmountInput(ht)) + '" inputmode="decimal">';
+    tr.querySelector('[data-col="taux"]').innerHTML =
+      '<input class="cell-input num" type="text" data-edit="taux" value="' +
+      escapeHtml(String(taux)) + '" inputmode="decimal" title="Taux en %">';
+    var tvaCell = tr.querySelector('[data-col="tva"]');
+    tvaCell.className = 'num muted';
+    tvaCell.setAttribute('data-col', 'tva');
+    var ttcCell = tr.querySelector('[data-col="ttc"]');
+    ttcCell.className = 'num muted';
+    ttcCell.setAttribute('data-col', 'ttc');
+    tr.querySelector('[data-col="tag"]').innerHTML =
+      '<select class="cell-tag-fac" data-edit="tag" aria-label="Type">' + tagOptionsHtml(tag) + '</select>';
+    tr.querySelector('.factures-actions').innerHTML =
+      '<button type="button" class="btn-ico btn-save-ligne" title="Enregistrer" aria-label="Enregistrer">✓</button>' +
+      '<button type="button" class="btn-ico btn-cancel-ligne" title="Annuler" aria-label="Annuler">↩</button>';
+
+    refreshEditPreview(tr);
+    var focusEl = tr.querySelector('[data-edit="numero"]');
+    if (focusEl) {
+      try { focusEl.focus({ preventScroll: true }); } catch (e) { focusEl.focus(); }
+      if (focusEl.select) focusEl.select();
+    }
+  }
+
+  function saveEdit(tr) {
+    var fid = tr.getAttribute('data-facture-id');
+    if (!fid) return;
+    var dateEl = tr.querySelector('[data-edit="date"]');
+    var numEl = tr.querySelector('[data-edit="numero"]');
+    var clientEl = tr.querySelector('[data-edit="client"]');
+    var htEl2 = tr.querySelector('[data-edit="ht"]');
+    var tauxEl2 = tr.querySelector('[data-edit="taux"]');
+    var tagEl = tr.querySelector('[data-edit="tag"]');
+    var date = dateEl ? dateEl.value : '';
+    var numero = numEl ? numEl.value.trim() : '';
+    var client = clientEl ? clientEl.value.trim() : '';
+    var ht = htEl2 ? parseFr(htEl2.value) : null;
+    var taux = tauxEl2 ? parseFr(tauxEl2.value) : null;
+    var tag = tagEl ? tagEl.value : '';
+    if (!date || !numero || !client || ht === null || taux === null) {
+      window.alert('Saisie incomplète : date, n°, client, HT et taux TVA sont obligatoires.');
+      return;
+    }
+    var fd = new FormData();
+    fd.append('csrf', csrf);
+    fd.append('ajax', '1');
+    fd.append('action', 'maj_facture');
+    fd.append('facture_id', fid);
+    fd.append('date_facture', date);
+    fd.append('numero', numero);
+    fd.append('client', client);
+    fd.append('ht', String(ht).replace('.', ','));
+    fd.append('taux_tva', String(taux).replace('.', ','));
+    fd.append('tag', tag);
+    tr.querySelectorAll('.btn-ico').forEach(function (b) { b.disabled = true; });
+    fetch(saveUrl, {
+      method: 'POST',
+      body: fd,
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok || !data.facture) {
+          tr.querySelectorAll('.btn-ico').forEach(function (b) { b.disabled = false; });
+          window.alert((data && data.erreur) || 'Enregistrement impossible.');
+          return;
+        }
+        tr.classList.remove('row-editing');
+        if (editingTr === tr) editingTr = null;
+        renderView(tr, data.facture, data.meta || null);
+        applyMar(tr, !!(data.meta && data.meta.mar));
+        if (data.recap) updateRecap(data.recap);
+      })
+      .catch(function () {
+        tr.querySelectorAll('.btn-ico').forEach(function (b) { b.disabled = false; });
+        window.alert('Erreur réseau.');
+      });
+  }
+
   function saveMeta(tr) {
     var fid = tr.getAttribute('data-facture-id');
     if (!fid) return;
@@ -315,6 +539,7 @@ $saveUrl = page_url('factures');
       .then(function (data) {
         if (!data || !data.ok || !data.meta) return;
         applyMar(tr, !!data.meta.mar);
+        tr.setAttribute('data-tag', tagSel ? tagSel.value : '');
         if (data.recap) updateRecap(data.recap);
       })
       .catch(function () {});
@@ -325,9 +550,98 @@ $saveUrl = page_url('factures');
     if (!(t instanceof HTMLSelectElement)) return;
     if (!t.matches('[data-field="tag"]')) return;
     var tr = t.closest('tr[data-facture-id]');
-    if (!tr) return;
+    if (!tr || tr.classList.contains('row-editing')) return;
     applyMar(tr, t.value === 'mar');
     saveMeta(tr);
+  });
+
+  grid.addEventListener('input', function (ev) {
+    var t = ev.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    var tr = t.closest('tr.row-editing');
+    if (!tr) return;
+    if (t.matches('[data-edit="ht"], [data-edit="taux"]')) refreshEditPreview(tr);
+  });
+
+  grid.addEventListener('focusout', function (ev) {
+    var t = ev.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (!t.matches('[data-edit="ht"]')) return;
+    t.value = formatAmountInput(t.value);
+    var tr = t.closest('tr.row-editing');
+    if (tr) refreshEditPreview(tr);
+  });
+
+  grid.addEventListener('keydown', function (ev) {
+    var tr = ev.target.closest && ev.target.closest('tr.row-editing');
+    if (!tr) return;
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      cancelEdit(tr);
+    } else if (ev.key === 'Enter' && ev.target.matches('input')) {
+      ev.preventDefault();
+      saveEdit(tr);
+    }
+  });
+
+  grid.addEventListener('click', function (ev) {
+    var editBtn = ev.target.closest('.btn-edit-ligne');
+    if (editBtn) {
+      var trE = editBtn.closest('tr[data-facture-id]');
+      if (trE) enterEdit(trE);
+      return;
+    }
+    var saveBtn = ev.target.closest('.btn-save-ligne');
+    if (saveBtn) {
+      var trS = saveBtn.closest('tr[data-facture-id]');
+      if (trS) saveEdit(trS);
+      return;
+    }
+    var cancelBtn = ev.target.closest('.btn-cancel-ligne');
+    if (cancelBtn) {
+      var trC = cancelBtn.closest('tr[data-facture-id]');
+      if (trC) cancelEdit(trC);
+      return;
+    }
+    var btn = ev.target.closest('.btn-del-ligne');
+    if (!btn) return;
+    var tr = btn.closest('tr[data-facture-id]');
+    if (!tr) return;
+    var fid = tr.getAttribute('data-facture-id');
+    if (!fid) return;
+    var num = tr.getAttribute('data-numero') || '';
+    var client = tr.getAttribute('data-client') || '';
+    var label = (num + (client ? ' — ' + client : '')).trim() || 'cette facture';
+    if (!window.confirm('Supprimer « ' + label + ' » ?\nCette action est définitive.')) {
+      return;
+    }
+    var fd = new FormData();
+    fd.append('csrf', csrf);
+    fd.append('ajax', '1');
+    fd.append('action', 'suppr_facture');
+    fd.append('facture_id', fid);
+    btn.disabled = true;
+    fetch(saveUrl, {
+      method: 'POST',
+      body: fd,
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok) {
+          btn.disabled = false;
+          window.alert((data && data.erreur) || 'Suppression impossible.');
+          return;
+        }
+        if (editingTr === tr) editingTr = null;
+        tr.remove();
+        if (data.recap) updateRecap(data.recap);
+      })
+      .catch(function () {
+        btn.disabled = false;
+        window.alert('Erreur réseau.');
+      });
   });
 })();
 </script>
