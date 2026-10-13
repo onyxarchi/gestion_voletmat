@@ -36,10 +36,24 @@ switch ($page) {
             csrf_verify();
             $login = trim((string) ($_POST['login'] ?? ''));
             $password = (string) ($_POST['password'] ?? '');
-            if (Auth::attempt($login, $password)) {
+            $action = (string) ($_POST['action'] ?? 'login');
+            if ($action === 'nouveau_mdp') {
+                $confirm = (string) ($_POST['password_confirm'] ?? '');
+                if (strlen($password) < 6) {
+                    flash('erreur', 'Le mot de passe doit faire au moins 6 caractères.');
+                } elseif ($password !== $confirm) {
+                    flash('erreur', 'Les deux mots de passe ne correspondent pas.');
+                } elseif (Auth::setPassword($login, $password)) {
+                    flash('ok', 'Nouveau mot de passe enregistré — retapez-le ci-dessous pour vous connecter.');
+                } else {
+                    flash('erreur', 'Identifiant inconnu. Vérifiez « sabine ».');
+                }
+                redirect('login');
+            } elseif (Auth::attempt($login, $password)) {
                 redirect('accueil');
+            } else {
+                flash('erreur', 'Identifiant ou mot de passe incorrect.');
             }
-            flash('erreur', 'Identifiant ou mot de passe incorrect.');
         }
         require dirname(__DIR__) . '/templates/login.php';
         break;
@@ -649,7 +663,7 @@ switch ($page) {
                 $oid = (int) ($_POST['operation_id'] ?? 0);
                 $eid = (int) $exercice['id'];
                 $st = $pdo->prepare(
-                    'SELECT id, annee_mois, date_operation FROM operations_bancaires
+                    'SELECT id FROM operations_bancaires
                      WHERE id = ? AND (exercice_id = ? OR exercice_id IS NULL)'
                 );
                 $st->execute([$oid, $eid]);
@@ -659,27 +673,6 @@ switch ($page) {
                         json_out(['ok' => false, 'erreur' => 'Opération introuvable.'], 404);
                     }
                     flash('erreur', 'Opération introuvable.');
-                    redirect('banque');
-                }
-                $moisOp = trim((string) ($row['annee_mois'] ?? ''));
-                if ($moisOp === '' && !empty($row['date_operation'])) {
-                    $moisOp = annee_mois_from_date((string) $row['date_operation']);
-                }
-                $stMax = $pdo->prepare(
-                    "SELECT MAX(annee_mois) FROM operations_bancaires
-                     WHERE exercice_id = ?
-                       AND annee_mois IS NOT NULL
-                       AND annee_mois != ''
-                       AND annee_mois != '000000'"
-                );
-                $stMax->execute([$eid]);
-                $moisOuvert = (string) ($stMax->fetchColumn() ?: '');
-                if ($moisOuvert !== '' && $moisOp !== '' && $moisOp < $moisOuvert) {
-                    $msg = 'Mois ' . $moisOp . ' validé (un mois plus récent existe) — suppression impossible.';
-                    if ($ajax) {
-                        json_out(['ok' => false, 'erreur' => $msg], 403);
-                    }
-                    flash('erreur', $msg);
                     redirect('banque');
                 }
                 $pdo->prepare(

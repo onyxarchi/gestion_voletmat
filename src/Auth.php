@@ -51,6 +51,25 @@ final class Auth
         return true;
     }
 
+    /** Définit un nouveau mot de passe pour un compte existant (sans connecter). */
+    public static function setPassword(string $login, string $password): bool
+    {
+        $login = trim($login);
+        if ($login === '' || strlen($password) < 6) {
+            return false;
+        }
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT id FROM utilisateurs WHERE login = ?');
+        $st->execute([$login]);
+        $row = $st->fetch();
+        if (!$row) {
+            return false;
+        }
+        $pdo->prepare('UPDATE utilisateurs SET password_hash = ? WHERE id = ?')
+            ->execute([password_hash($password, PASSWORD_DEFAULT), (int) $row['id']]);
+        return true;
+    }
+
     public static function logout(): void
     {
         self::startSession();

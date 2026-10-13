@@ -18,6 +18,11 @@ $categories = $categories ?? [];
 $releveSoldes = $releveSoldes ?? [];
 $csrf = csrf_token();
 $saveUrl = page_url('banque');
+$banqueDelIcon = '<svg class="banque-del-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    . '<path d="M9 4.75h6"/>'
+    . '<path d="M4.75 7.75h14.5"/>'
+    . '<path d="M7.25 7.75l.8 11.05a1.25 1.25 0 0 0 1.24 1.15h5.42a1.25 1.25 0 0 0 1.24-1.15l.8-11.05"/>'
+    . '</svg>';
 
 /** @var array<string, list<array>> $opsParMois */
 $opsParMois = [];
@@ -167,11 +172,6 @@ if (is_array($exercice ?? null)) {
       <?php endforeach; ?>
     </div>
   </div>
-  <?php if ($moisOuvert !== ''): ?>
-  <p class="muted banque-mois-lock-hint">
-    Suppression uniquement sur <?= e($moisOuvert) ?> (mois en cours). Les mois précédents sont considérés validés.
-  </p>
-  <?php endif; ?>
   <?php endif; ?>
 </div>
 
@@ -181,7 +181,6 @@ if (is_array($exercice ?? null)) {
 <table class="data banque-grid" id="banque-grid"
        data-save-url="<?= e($saveUrl) ?>"
        data-csrf="<?= e($csrf) ?>"
-       data-mois-ouvert="<?= e($moisOuvert) ?>"
        data-releve-soldes="<?= e(json_encode($releveSoldes, JSON_UNESCAPED_UNICODE) ?: '{}') ?>">
   <thead>
     <tr>
@@ -291,13 +290,12 @@ if (is_array($exercice ?? null)) {
         $creditVal = $o['credit'] !== null ? (float) $o['credit'] : null;
         $oid = (int) $o['id'];
         $isDup = isset($doublonIds[$oid]);
-        $supprOk = $moisOuvert === '' || $mois === '' || $mois >= $moisOuvert;
     ?>
     <tr data-operation-id="<?= $oid ?>" data-tri="<?= e($tri) ?>"
         data-mois="<?= e($mois) ?>"
         data-debit="<?= $debitVal !== null ? e((string) abs($debitVal)) : '0' ?>"
         data-credit="<?= $creditVal !== null ? e((string) abs($creditVal)) : '0' ?>"
-        class="<?= $tri === '' ? 'row-tri-vide' : '' ?><?= $isDup ? ' banque-doublon' : '' ?><?= $supprOk ? '' : ' banque-mois-clos' ?>">
+        class="<?= $tri === '' ? 'row-tri-vide' : '' ?><?= $isDup ? ' banque-doublon' : '' ?>">
       <td class="banque-col-date"><?= date_fr($o['date_operation']) ?></td>
       <td class="banque-col-valeur"><?= date_fr($o['date_valeur'] ?? null) ?></td>
       <td class="banque-col-libelle">
@@ -327,13 +325,9 @@ if (is_array($exercice ?? null)) {
       </td>
       <td class="muted banque-col-mois"><?= e($mois) ?></td>
       <td class="banque-col-del">
-        <?php if ($supprOk): ?>
         <button type="button" class="btn-del-ligne banque-del"
                 title="<?= $isDup ? 'Doublon probable — supprimer' : 'Supprimer cette ligne' ?>"
-                aria-label="Supprimer">×</button>
-        <?php else: ?>
-        <span class="banque-del-locked" title="Mois validé — suppression impossible" aria-label="Mois validé">·</span>
-        <?php endif; ?>
+                aria-label="Supprimer"><?= $banqueDelIcon ?></button>
       </td>
     </tr>
     <?php endforeach; ?>
@@ -362,7 +356,6 @@ if (is_array($exercice ?? null)) {
   var csrf = grid.getAttribute('data-csrf') || '';
   var moisSelect = document.getElementById('banque-mois-filter');
   var statusEl = document.getElementById('banque-status');
-  var moisOuvert = grid.getAttribute('data-mois-ouvert') || '';
 
   var filterRoot = document.getElementById('banque-tri-filter');
   var filterBtn = document.getElementById('banque-tri-filter-btn');
@@ -680,11 +673,6 @@ if (is_array($exercice ?? null)) {
     if (!btn) return;
     var tr = btn.closest('tr[data-operation-id]');
     if (!tr) return;
-    var rowMois = tr.getAttribute('data-mois') || '';
-    if (moisOuvert && rowMois && rowMois < moisOuvert) {
-      setStatus('Mois ' + rowMois + ' validé — suppression impossible');
-      return;
-    }
     var oid = tr.getAttribute('data-operation-id');
     if (!oid) return;
     var lib = '';
@@ -819,7 +807,9 @@ if (is_array($exercice ?? null)) {
       '</td>' +
       '<td class="muted banque-col-mois"></td>' +
       '<td class="banque-col-del">' +
-        '<button type="button" class="btn-del-ligne banque-del" title="Supprimer cette ligne" aria-label="Supprimer">×</button>' +
+        '<button type="button" class="btn-del-ligne banque-del" title="Supprimer cette ligne" aria-label="Supprimer">' +
+          <?= json_encode($banqueDelIcon, JSON_UNESCAPED_UNICODE) ?> +
+        '</button>' +
       '</td>';
 
     tr.children[0].textContent = op.date_operation_fr || op.date_operation || '';

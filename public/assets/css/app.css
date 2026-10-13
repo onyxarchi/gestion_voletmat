@@ -390,27 +390,22 @@ table.banque-grid .banque-del {
   height: 1.35rem;
   padding: 0;
   margin: 0;
-  border: 1px solid #e8b8bc;
-  border-radius: 3px;
-  background: #fff;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--danger);
-  font-size: 1rem;
-  font-weight: 700;
   line-height: 1;
   cursor: pointer;
 }
 table.banque-grid .banque-del:hover {
-  background: var(--danger-bg);
-  border-color: var(--danger);
+  background: transparent;
+  opacity: 0.7;
 }
-table.banque-grid .banque-del-locked {
-  display: inline-block;
-  width: 1.35rem;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.35rem;
-  user-select: none;
+table.banque-grid .banque-del-ico {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  pointer-events: none;
 }
 table.banque-grid tr.banque-new-row > td {
   background: #f3f8fb;
@@ -457,7 +452,6 @@ table.banque-grid tr.banque-doublon > td {
   background: #fff6e8;
 }
 table.banque-grid tr.banque-doublon .banque-del {
-  border-color: #e0a060;
   color: #a05000;
 }
 
@@ -512,11 +506,6 @@ table.data tfoot tr.import-sous-total td {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface);
-}
-.banque-mois-lock-hint {
-  flex: 1 1 100%;
-  margin: 0;
-  font-size: 0.82rem;
 }
 .banque-sous-total-hint {
   font-size: 0.8rem;
@@ -649,6 +638,55 @@ table.data tfoot tr.import-sous-total td {
   border-color: var(--vm-blue);
 }
 .form-actions { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.login-actions { align-items: center; }
+.login-dialog {
+  border: none;
+  border-radius: var(--radius);
+  padding: 0;
+  max-width: 26rem;
+  width: calc(100% - 2rem);
+  box-shadow: 0 12px 40px rgba(28, 36, 40, 0.22);
+  background: transparent;
+}
+.login-dialog::backdrop {
+  background: rgba(28, 36, 40, 0.45);
+}
+.login-dialog-inner {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--vm-coral);
+  border-radius: var(--radius);
+  padding: 1.35rem 1.5rem 1.5rem;
+}
+.login-dialog-inner h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  color: var(--vm-blue-dark);
+}
+.login-dialog-inner .lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.login-dialog-inner label {
+  display: block;
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0.25rem;
+  color: var(--muted);
+}
+.login-dialog-inner input[type="text"],
+.login-dialog-inner input[type="password"] {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+.login-dialog-inner input:focus {
+  outline: 2px solid rgba(80, 120, 144, 0.35);
+  border-color: var(--vm-blue);
+}
 
 .panel {
   background: var(--surface);
