@@ -100,8 +100,9 @@ final class CaService
             ];
         }
 
-        $caEncaisse = $this->caHtBetween($debut, $fin);
         $impayes = $this->caImpayesExercice($exerciceId);
+        // Encaissé = factures bleues (payées), même base que le planning « Montant facturé ».
+        $caEncaisse = $this->caPayeExercice($exerciceId);
         $marParAnnee = $this->caMarParAnneeCivile($exerciceId);
 
         if ($annees === []) {
@@ -137,13 +138,27 @@ final class CaService
     /** Factures en litige (jaune planning) — hors payé / pas encore payé. */
     private function caImpayesExercice(int $exerciceId): float
     {
+        return $this->caSelonStatut($exerciceId, 'litige');
+    }
+
+    /**
+     * CA encaissé / montant facturé payé : factures au statut planning « paye » (bleu).
+     */
+    public function caPayeExercice(int $exerciceId): float
+    {
+        return round($this->caSelonStatut($exerciceId, 'paye'), 2);
+    }
+
+    /** @param 'paye'|'facture'|'litige' $statut */
+    private function caSelonStatut(int $exerciceId, string $statut): float
+    {
         $couleurs = (new PlanningService($this->pdo))->couleursFactures($exerciceId);
         $st = $this->pdo->prepare('SELECT id, ht FROM factures WHERE exercice_id = ?');
         $st->execute([$exerciceId]);
         $sum = 0.0;
         foreach ($st->fetchAll() as $r) {
             $id = (int) $r['id'];
-            if (($couleurs[$id] ?? '') === 'litige') {
+            if (($couleurs[$id] ?? '') === $statut) {
                 $sum += (float) $r['ht'];
             }
         }

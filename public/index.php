@@ -1317,20 +1317,22 @@ switch ($page) {
             $objectif = round((float) ($grillePrev['objectif_ca_ht'] ?? 0), 2);
             $pdo->prepare('UPDATE exercices SET objectif_ca_ht = ? WHERE id = ?')
                 ->execute([$objectif, $eid]);
+            $montantFactureCours = (new CaService($pdo))->caPayeExercice($eid);
+            $planning['montant_facture_cours'] = $montantFactureCours;
             if ($objectif > 0.005) {
                 $totStat = $planning['totaux_statut'] ?? [];
-                $factureEnCours = round((float) ($totStat['paye'] ?? 0), 2);
+                // Même montant que « CA Encaissé » (factures bleues), pas la somme brute des cases planning.
                 $restantAFacturer = round(
                     (float) ($totStat['a_facturer'] ?? 0)
                     + (float) ($totStat['facture'] ?? 0)
                     + (float) ($totStat['litige'] ?? 0),
                     2
                 );
-                // Écart = objectif exercice − facturé en cours (bleu) − restant à facturer (V+R+J)
-                $ecart = round($objectif - $factureEnCours - $restantAFacturer, 2);
+                // Écart = objectif − facturé payé (factures) − restant à facturer (cases V+R+J)
+                $ecart = round($objectif - $montantFactureCours - $restantAFacturer, 2);
                 $objectifInfo = [
                     'objectif' => $objectif,
-                    'facture_en_cours' => $factureEnCours,
+                    'facture_en_cours' => $montantFactureCours,
                     'restant_a_facturer' => $restantAFacturer,
                     'ecart' => $ecart,
                     'atteint' => $ecart <= 0.005,

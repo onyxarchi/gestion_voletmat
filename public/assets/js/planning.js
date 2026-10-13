@@ -391,15 +391,21 @@
 
     var kpiBleu = document.querySelector('[data-kpi="bleu"]');
     var kpiVrj = document.querySelector('[data-kpi="vrj"]');
-    if (kpiBleu) kpiBleu.textContent = formatEuro(sumBleu);
+    // « Montant facturé » suit les factures (CA Encaissé), pas la somme des cases bleues.
+    if (kpiBleu && kpiBleu.getAttribute('data-source') !== 'factures') {
+      kpiBleu.textContent = formatEuro(sumBleu);
+    }
     if (kpiVrj) kpiVrj.textContent = formatEuro(sumVrj);
 
     var objCard = document.querySelector('[data-objectif]');
     var statutCard = document.querySelector('[data-kpi="objectif-statut"]');
     if (objCard && statutCard) {
       var objectif = parseAmount(objCard.getAttribute('data-objectif'));
-      // CA année − facturé en cours − restant à facturer
-      var ecart = Math.round((objectif - sumBleu - sumVrj) * 100) / 100;
+      var factureCours = (kpiBleu && kpiBleu.getAttribute('data-source') === 'factures')
+        ? parseAmount(kpiBleu.textContent)
+        : sumBleu;
+      // Objectif − facturé payé (factures) − restant à facturer (cases)
+      var ecart = Math.round((objectif - factureCours - sumVrj) * 100) / 100;
       var atteint = ecart <= 0.005;
       var labelEl = statutCard.querySelector('[data-kpi-label]');
       var valueEl = statutCard.querySelector('[data-kpi-value]');

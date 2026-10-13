@@ -231,6 +231,8 @@ final class PlanningService
     /**
      * Métadonnées affichage factures : statut paiement + flag MAR.
      * Statut : paye (bleu) · facture (vert) · litige (jaune impayé). Pas de rouge.
+     * Le planning prime : une case bleue → facture bleue. Le statut_paiement
+     * stocké sur la facture ne sert qu’en repli s’il n’y a aucun lien planning.
      * MAR = badge séparé pour le ratio CA MAR.
      *
      * @return array<int, array{statut: 'paye'|'facture'|'litige', mar: bool, auto_statut: bool, auto_mar: bool}>
@@ -298,18 +300,19 @@ final class PlanningService
             }
 
             // Avoir / ligne à 0 € (ex. avoir de TVA BEGOU) = considéré payé.
+            // Sinon : planning d’abord (vous décidez via les couleurs du planning).
             if (abs($ht) < 0.005) {
                 $statut = 'paye';
                 $autoStatut = true;
-            } elseif ($statutMan !== null) {
-                $statut = $statutMan;
-                $autoStatut = false;
             } elseif (isset($statutsPlan[$id])) {
                 $statut = $statutsPlan[$id];
                 $autoStatut = true;
             } elseif (isset($payees[$id])) {
                 $statut = 'paye';
                 $autoStatut = true;
+            } elseif ($statutMan !== null) {
+                $statut = $statutMan;
+                $autoStatut = false;
             } else {
                 $statut = 'facture';
                 $autoStatut = true;
@@ -387,13 +390,13 @@ final class PlanningService
                     continue;
                 }
                 $diff = $this->monthDiff($f['ym'], $c['ym']);
-                if ($diff === null || $diff > 1) {
+                if ($diff === null || $diff > 6) {
                     continue;
                 }
                 if (!$this->clientsOverlap($f['client'], $c['client'])) {
                     continue;
                 }
-                $score = 100 - $diff * 20;
+                $score = 100 - $diff * 10;
                 if ($c['statut'] === 'paye') {
                     $score += 15;
                 } elseif ($c['statut'] === 'litige') {
@@ -473,13 +476,13 @@ final class PlanningService
                     continue;
                 }
                 $diff = $this->monthDiff($f['ym'], $c['ym']);
-                if ($diff === null || $diff > 1) {
+                if ($diff === null || $diff > 6) {
                     continue;
                 }
                 if (!$this->clientsOverlap($f['client'], $c['client'])) {
                     continue;
                 }
-                $score = 100 - $diff * 20;
+                $score = 100 - $diff * 10;
                 if ($c['groupe'] === 'mar') {
                     $score += 5;
                 }
@@ -600,10 +603,12 @@ final class PlanningService
         $usedFact = [];
         $factureAffaires = [];
         if ($cells !== []) {
-            // Toujours montant + client (pas de match sur le montant seul)
+            // Toujours montant + client (pas de match sur le montant seul).
+            // Jusqu’à 6 mois d’écart : un client qui paie en retard reste rapproché.
             $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 0, true);
             $this->assignPayeSousEnsembles($cells, $factures, $matched, $usedFact, $factureAffaires);
             $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 1, true);
+            $this->assignPayeUnAUn($cells, $factures, $matched, $usedFact, $factureAffaires, 6, true);
         }
 
         $alertes = [];
@@ -657,7 +662,7 @@ final class PlanningService
                 if ($requireClient && !$overlap) {
                     continue;
                 }
-                $score = (100 - $diff * 20) + ($overlap ? 30 : 0);
+                $score = (100 - $diff * 10) + ($overlap ? 30 : 0);
                 if ($score > $bestScore) {
                     $bestScore = $score;
                     $bestId = $fid;

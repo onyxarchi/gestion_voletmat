@@ -829,7 +829,7 @@ body.page-analytique .app-footer {
 .leg-facture { background: #e6f0ec; color: #3d6b5c; border-color: #b7d0c6; }
 .leg-litige { background: #faf3dc; color: #8a6d1d; border-color: #e2d4a0; }
 .leg-paye { background: #dce8f6; color: #1e4f8c; border-color: #9bb8db; }
-.leg-mar { background: #dbe2f1; color: #3d4f6f; border-color: #b8c4d8; }
+.leg-mar { background: #fce8ec; color: #c62828; border-color: #ef9a9a; }
 .leg-fini { background: #e8e8e8; color: #6a6a6a; border-color: #c8c8c8; }
 .cards-compact { margin-top: 0; }
 .planning-top {
@@ -1228,7 +1228,7 @@ table.factures-grid td.facture-num .facture-num-val {
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #c62828;
-  background: #fce8e8;
+  background: #fce8ec;
   border: 1px solid #ef9a9a;
   border-radius: 3px;
   vertical-align: middle;

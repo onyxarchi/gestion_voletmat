@@ -199,7 +199,9 @@ if ($moisKeys) {
   <div class="cards cards-compact">
     <div class="card">
       <div class="label">Montant facturé (en cours)</div>
-      <div class="value" data-kpi="bleu"><?= euro((float) ($totauxStatut['paye'] ?? 0)) ?></div>
+      <div class="value" data-kpi="bleu" data-source="factures" title="Aligné sur le CA Encaissé (factures payées)">
+        <?= euro((float) ($planning['montant_facture_cours'] ?? $totauxStatut['paye'] ?? 0)) ?>
+      </div>
     </div>
     <div class="card">
       <div class="label">Montant restant à facturer</div>
